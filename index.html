@@ -503,7 +503,7 @@ dialog { border-radius: 10px; }
       <div class="sc-form">
         <div class="filtros">
           <div class="campo"><label for="sc-semana">Semana</label><select id="sc-semana" style="min-width:290px"></select></div>
-          <div class="campo"><label for="sc-fat">Faturamento da semana (R$)</label><input id="sc-fat" type="text" inputmode="decimal" autocomplete="off" min="0.01" step="0.01" style="width:190px"></div>
+          <div class="campo"><label for="sc-fat">Faturamento da semana (R$)</label><input id="sc-fat" type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 449055 ou 449055,50" min="0.01" step="0.01" style="width:190px"></div>
           <div class="campo"><label for="sc-meta">Meta de CMV (%)</label><input id="sc-meta" type="text" inputmode="decimal" autocomplete="off" min="0.01" max="100" step="0.01" style="width:120px"></div>
         </div>
         <p class="dica" id="sc-aviso-semana"></p>
@@ -839,7 +839,7 @@ dialog { border-radius: 10px; }
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-01.5";
+const VERSAO = "2026-10-01.7";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -2441,8 +2441,8 @@ function montarFormScorecard() {
   const cats = E.scCats.filter((c) => c.ativo || porCat[c.id]);
   $("#sc-grid").innerHTML = cats.map((c) => { const i = porCat[c.id]; return `<tr data-cat="${c.id}" data-salvo="${i ? 1 : ""}">
     <td>${esc(c.nome)}</td>
-    <td class="num"><input class="mini" type="text" inputmode="decimal" autocomplete="off" min="0" step="0.01" data-k="teo" value="${i ? numIn(i.cmv_teorico) : ""}" aria-label="CMV teórico ${esc(c.nome)}"></td>
-    <td class="num"><input class="mini" type="text" inputmode="decimal" autocomplete="off" min="0" step="0.01" data-k="real" value="${i ? numIn(i.cmv_real) : ""}" aria-label="CMV real ${esc(c.nome)}"></td>
+    <td class="num"><input class="mini" type="text" inputmode="decimal" autocomplete="off" data-k="teo" value="${i ? numIn(i.cmv_teorico) : ""}" aria-label="CMV teórico ${esc(c.nome)}"></td>
+    <td class="num"><input class="mini" type="text" inputmode="decimal" autocomplete="off" data-k="real" value="${i ? numIn(i.cmv_real) : ""}" aria-label="CMV real ${esc(c.nome)}"></td>
     <td class="num" data-o="pteo"></td><td class="num" data-o="preal"></td><td class="num" data-o="dif"></td></tr>`; }).join("")
     || `<tr><td colspan="6" class="vazio">Nenhuma categoria ativa. Cadastre em Cadastros → Categorias do CMV.</td></tr>`;
   const emAndamento = ini === segunda(hojeSP());
@@ -2455,6 +2455,24 @@ $("#sc-semana").addEventListener("change", montarFormScorecard);
 // Ao sair do campo, mostra o valor já formatado (449.055,00), para conferir como o sistema entendeu
 const fmtCampoR = (el) => { const n = num(el.value); if (el.value.trim() !== "" && Number.isFinite(n)) el.value = n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
 $("#sc-fat").addEventListener("blur", (e) => { fmtCampoR(e.target); recalcularScorecard(); });
+// Máscara de valor: coloca os pontos de milhar sozinha enquanto digita; vírgula só para centavos
+function mascaraValor(el, permiteNegativo) {
+  const v = el.value, pos = el.selectionStart ?? v.length;
+  const antes = v.slice(0, pos).replace(/[^\d,]/g, "").length;
+  const neg = permiteNegativo && v.trim().startsWith("-");
+  const t = v.replace(/[^\d,]/g, ""), i = t.indexOf(",");
+  let inteiro = (i < 0 ? t : t.slice(0, i)).replace(/^0+(?=\d)/, "");
+  const dec = i < 0 ? null : t.slice(i + 1).replace(/,/g, "").slice(0, 2);
+  if (dec !== null && inteiro === "") inteiro = "0";
+  const out = (neg ? "-" : "") + inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + (dec !== null ? "," + dec : "");
+  if (out === v) return;
+  el.value = out;
+  let p = neg ? 1 : 0, c = 0;
+  while (p < out.length && c < antes) { if (/[\d,]/.test(out[p])) c++; p++; }
+  el.setSelectionRange(p, p);
+}
+$("#sc-fat").addEventListener("input", (e) => mascaraValor(e.target, false));
+$("#sc-grid").addEventListener("input", (e) => { if (e.target.matches("input[data-k]")) mascaraValor(e.target, true); }, true);
 $("#sc-grid").addEventListener("focusout", (e) => { if (e.target.matches("input[data-k]")) { fmtCampoR(e.target); recalcularScorecard(); } });
 ["#sc-fat", "#sc-meta"].forEach((s) => $(s).addEventListener("input", recalcularScorecard));
 $("#sc-grid").addEventListener("input", recalcularScorecard);
@@ -2492,7 +2510,6 @@ $("#sc-salvar").addEventListener("click", async () => {
     const nome = tr.cells[0].textContent;
     if ((teo == null) !== (real == null)) return toast(`${nome}: preencha o CMV teórico e o real.`);
     if (teo != null && (Number.isNaN(teo) || Number.isNaN(real))) return toast(`${nome}: valor inválido. Use só números, por exemplo 1.234,56.`);
-    if (teo != null && (teo < 0 || real < 0)) return toast(`${nome}: valores não podem ser negativos.`);
     if (teo != null) itens.push({ categoria_id: tr.dataset.cat, cmv_teorico: teo, cmv_real: real });
     else if (tr.dataset.salvo) remover.push(tr.dataset.cat);
   }
