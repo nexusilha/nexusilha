@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Gestão de CMV — Ilha do Caranguejo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -277,6 +278,8 @@ dialog { border-radius: 10px; }
 #toast { border-radius: 8px; font-size: 14px; }
 
 /* Login */
+.btn.bloco { display: block; width: 100%; padding: 10px 16px; border: 1px solid var(--mare); border-radius: 6px; background: var(--mare); color: #fff; font: 600 15px var(--sans); }
+.btn.bloco:hover { background: var(--mare-escura); }
 #login { background: var(--lateral); }
 .login-box { border: 0; border-radius: 10px; box-shadow: 0 18px 50px rgba(0,0,0,.35); }
 .login-topo { background: var(--lateral-2); }
@@ -718,7 +721,7 @@ dialog { border-radius: 10px; }
       </div>
 
       <div id="cad-ideal" class="oculto">
-        <p class="dica">Quantidade mínima que a cozinha deve ter em cada dia. A requisição sugere: ideal do dia − estoque da cozinha.</p>
+        <p class="dica">Quantidade mínima que a cozinha deve ter em cada dia.</p>
         <div class="filtros"><div class="campo"><label for="ide-busca">Buscar</label><input id="ide-busca" placeholder="Nome"></div>
           <button class="btn sec" id="ide-sugerir">Calcular sugestão pelo consumo</button></div>
         <p class="dica" id="ide-dica-sug"></p>
@@ -836,6 +839,14 @@ dialog { border-radius: 10px; }
 // ============================================================
 // CONFIG
 // ============================================================
+const VERSAO = "2026-10-01.3";
+(async () => {
+  try {
+    const r = await fetch(location.pathname, { cache: "reload" });
+    const nova = (await r.text()).match(/const VERSAO = "([^"]+)"/)?.[1];
+    if (nova && nova !== VERSAO && !location.search.includes("v=" + nova)) location.replace(location.pathname + "?v=" + nova);
+  } catch (_) {}
+})();
 const SUPABASE_URL = "https://dnqcfgvwjzampdsvshxc.supabase.co";
 const SUPABASE_KEY = "sb_publishable_zNPfW2-E01ycbvz5eBYViQ_SNc0lWad";
 const BUCKET = "requisicoes-scans";
@@ -1403,18 +1414,12 @@ $("#btn-add-item").addEventListener("click", () => addItemLinha());
 
 async function abrirNova() {
   $("#form-req").reset(); $("#req-erro").textContent = ""; $("#req-itens").innerHTML = "";
-  const [{ count }, sug] = await Promise.all([
-    sb.from("requisicoes").select("id", { count: "exact", head: true }).eq("dia", hojeSP()).is("excluido_em", null),
-    sb.from("v_sugestao_retirada").select("produto_id,sugestao,saldo_cozinha,saldo_principal,ideal_hoje"),
-  ]);
+  const { count } = await sb.from("requisicoes").select("id", { count: "exact", head: true }).eq("dia", hojeSP()).is("excluido_em", null);
   const extra = (count || 0) > 0;
   $("#aviso-extra").classList.toggle("oculto", !extra);
   $("#bloco-extra").classList.toggle("oculto", !extra);
   $("#req-just").required = extra;
-  E.sugestoes = {};
-  (sug.data || []).forEach((s) => (E.sugestoes[s.produto_id] = s));
-  const comSug = (sug.data || []).filter((s) => Number(s.sugestao) > 0);
-  if (!extra && comSug.length) comSug.forEach((s) => addItemLinha(s.produto_id, s.sugestao)); else addItemLinha();
+  addItemLinha();
   $("#modal-req").showModal(); $("#req-resp").focus();
 }
 
@@ -1426,11 +1431,8 @@ function addItemLinha(produtoId = "", qtd = "") {
       <button type="button" aria-label="Remover item">✕</button></div><div class="sugestao"></div>`;
   const sel = div.querySelector("select");
   const atual = () => {
-    const s = E.sugestoes[sel.value]; const p = E.produtos.find((x) => x.id === sel.value);
-    div.querySelector(".sugestao").textContent = s && !isGestor()
-      ? `Sugestão ${fmtQtd(s.sugestao)} ${p?.unidade || ""}`
-      : s ? `Ideal hoje ${fmtQtd(s.ideal_hoje)} | cozinha ${fmtQtd(s.saldo_cozinha)} | principal ${fmtQtd(s.saldo_principal)} | sugestão ${fmtQtd(s.sugestao)} ${p?.unidade || ""}`
-      : p ? `Unidade: ${p.unidade}` : "";
+    const p = E.produtos.find((x) => x.id === sel.value);
+    div.querySelector(".sugestao").textContent = p ? `Unidade: ${p.unidade}` : "";
   };
   sel.addEventListener("change", atual);
   div.querySelector("button").addEventListener("click", () => div.remove());
