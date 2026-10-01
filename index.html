@@ -456,7 +456,7 @@ dialog { border-radius: 10px; }
           <div class="campo"><label for="per-produto">Produto</label><select id="per-produto"></select><div class="per-un" id="per-un"></div></div>
           <div class="per-grade">
             <div class="campo"><label for="per-praca">Praça</label><select id="per-praca"></select></div>
-            <div class="campo"><label for="per-qtd">Quantidade perdida</label><input id="per-qtd" type="number" inputmode="decimal" min="0.01" step="0.01"></div>
+            <div class="campo"><label for="per-qtd">Quantidade perdida</label><input id="per-qtd" type="text" inputmode="decimal" autocomplete="off" min="0.01" step="0.01"></div>
             <div class="campo"><label for="per-data">Data e hora da perda</label><input id="per-data" type="datetime-local"></div>
           </div>
           <div class="campo"><label for="per-motivo">Motivo</label><input id="per-motivo" list="per-motivos" autocomplete="off" placeholder="O que aconteceu"></div>
@@ -503,8 +503,8 @@ dialog { border-radius: 10px; }
       <div class="sc-form">
         <div class="filtros">
           <div class="campo"><label for="sc-semana">Semana</label><select id="sc-semana" style="min-width:290px"></select></div>
-          <div class="campo"><label for="sc-fat">Faturamento da semana (R$)</label><input id="sc-fat" type="number" inputmode="decimal" min="0.01" step="0.01" style="width:190px"></div>
-          <div class="campo"><label for="sc-meta">Meta de CMV (%)</label><input id="sc-meta" type="number" inputmode="decimal" min="0.01" max="100" step="0.01" style="width:120px"></div>
+          <div class="campo"><label for="sc-fat">Faturamento da semana (R$)</label><input id="sc-fat" type="text" inputmode="decimal" autocomplete="off" min="0.01" step="0.01" style="width:190px"></div>
+          <div class="campo"><label for="sc-meta">Meta de CMV (%)</label><input id="sc-meta" type="text" inputmode="decimal" autocomplete="off" min="0.01" max="100" step="0.01" style="width:120px"></div>
         </div>
         <p class="dica" id="sc-aviso-semana"></p>
         <div class="tabela-wrap"><table>
@@ -839,7 +839,7 @@ dialog { border-radius: 10px; }
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-01.3";
+const VERSAO = "2026-10-01.5";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -917,6 +917,16 @@ async function tudo(fn) {
 const inicioDia = (ymd) => new Date(ymd + "T00:00:00-03:00").toISOString();
 const segunda = (ymd) => addDias(ymd, -((new Date(ymd + "T12:00:00Z").getUTCDay() + 6) % 7));
 const diaSemana = (ymd) => new Date(ymd + "T12:00:00Z").getUTCDay();
+// Lê números digitados no padrão brasileiro (1.234,56) ou com ponto (1234.56)
+const num = (v) => {
+  let t = String(v ?? "").replace(/R\$|\s|%/g, "");
+  if (t === "") return NaN;
+  if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, ""); // 449.055 = quatrocentos e quarenta e nove mil
+  return Number(t);
+};
+const numIn = (n) => (n == null || n === "" ? "" : String(Number(n)).replace(".", ","));
+const fmtPct2 = (n) => n == null || n === "" || !isFinite(n) ? "-" : Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
 const fmtPct = (n) => n == null || !isFinite(n) ? "-" : Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%";
 
 async function q(promise) {
@@ -932,7 +942,7 @@ function montarGrade(tbody, produtos, { permitirZero = false } = {}) {
     if (p.categoria !== cat) { cat = p.categoria; html += `<tr class="grupo"><td colspan="3">${esc(cat)}</td></tr>`; }
     html += `<tr class="${p.critico ? "critico" : ""}" data-nome="${esc(p.nome.toLowerCase())}" data-cat="${esc(cat)}">
       <td>${esc(p.nome)}</td><td>${esc(p.unidade)}</td>
-      <td class="num"><input class="qtd" type="number" inputmode="decimal" min="${permitirZero ? 0 : 0.01}" step="0.01" data-id="${p.id}" aria-label="${esc(p.nome)}"></td></tr>`;
+      <td class="num"><input class="qtd" type="text" inputmode="decimal" autocomplete="off" min="${permitirZero ? 0 : 0.01}" step="0.01" data-id="${p.id}" aria-label="${esc(p.nome)}"></td></tr>`;
   });
   tbody.innerHTML = html || `<tr><td colspan="3" class="vazio">Nenhum produto.</td></tr>`;
 }
@@ -948,8 +958,8 @@ function filtrarGrade(tbody, termo) {
 }
 function lerGrade(tbody, permitirZero) {
   return [...tbody.querySelectorAll("input[data-id]")]
-    .filter((i) => i.value !== "" && (permitirZero ? Number(i.value) >= 0 : Number(i.value) > 0))
-    .map((i) => ({ produto_id: i.dataset.id, quantidade: Number(i.value) }));
+    .filter((i) => i.value !== "" && (permitirZero ? num(i.value) >= 0 : num(i.value) > 0))
+    .map((i) => ({ produto_id: i.dataset.id, quantidade: num(i.value) }));
 }
 function contarGrade(tbody, alvo, rotulo) {
   const n = [...tbody.querySelectorAll("input[data-id]")].filter((i) => i.value !== "").length;
@@ -1427,7 +1437,7 @@ function addItemLinha(produtoId = "", qtd = "") {
   const div = document.createElement("div");
   div.innerHTML = `<div class="item-linha">
       <select aria-label="Produto" required>${opcoesProdutos(produtoId)}</select>
-      <input type="number" inputmode="decimal" aria-label="Quantidade" min="0.01" step="0.01" placeholder="Qtd" value="${qtd}" required>
+      <input type="text" inputmode="decimal" autocomplete="off" aria-label="Quantidade" min="0.01" step="0.01" placeholder="Qtd" value="${qtd}" required>
       <button type="button" aria-label="Remover item">✕</button></div><div class="sugestao"></div>`;
   const sel = div.querySelector("select");
   const atual = () => {
@@ -1442,7 +1452,7 @@ function addItemLinha(produtoId = "", qtd = "") {
 $("#form-req").addEventListener("submit", async (ev) => {
   ev.preventDefault(); $("#req-erro").textContent = "";
   const itens = [...$("#req-itens").querySelectorAll(".item-linha")]
-    .map((l) => ({ produto_id: l.querySelector("select").value, quantidade: Number(l.querySelector("input").value) }))
+    .map((l) => ({ produto_id: l.querySelector("select").value, quantidade: num(l.querySelector("input").value) }))
     .filter((i) => i.produto_id && i.quantidade > 0);
   const ids = itens.map((i) => i.produto_id);
   if (new Set(ids).size !== ids.length) return ($("#req-erro").textContent = "Há produtos repetidos. Some as quantidades numa linha só.");
@@ -1541,7 +1551,7 @@ $("#cont-salvar").addEventListener("click", async () => {
       E.recont = { dh, primeiras: {} };
       ids.forEach((id) => {
         const inp = $(`#cont-grid input[data-id="${id}"]`);
-        E.recont.primeiras[id] = Number(inp.value);
+        E.recont.primeiras[id] = num(inp.value);
         inp.value = ""; inp.closest("tr").classList.add("recontar");
       });
       const n = ids.length;
@@ -2009,10 +2019,10 @@ function linhaProduto(p) {
     <td><input data-f="nome" value="${esc(p.nome)}" style="min-width:240px"></td>
     <td><input data-f="categoria" list="lista-categorias" value="${esc(p.categoria)}" style="min-width:200px"></td>
     <td><select data-f="unidade">${["UND", "KG", "PCT"].map((u) => `<option ${u === p.unidade ? "selected" : ""}>${u}</option>`).join("")}</select></td>
-    <td class="num"><input class="mini" data-f="gramatura_g" type="number" step="0.01" value="${n(p.gramatura_g)}"></td>
+    <td class="num"><input class="mini" data-f="gramatura_g" type="text" inputmode="decimal" autocomplete="off" step="0.01" value="${numIn(p.gramatura_g)}"></td>
     <td><input data-f="critico" type="checkbox" ${p.critico ? "checked" : ""} style="width:auto"></td>
-    <td class="num"><input class="mini" data-f="tolerancia_qtd" type="number" step="0.01" min="0" value="${n(p.tolerancia_qtd)}"></td>
-    <td class="num"><input class="mini" data-f="tolerancia_pct" type="number" step="0.01" min="0" value="${n(p.tolerancia_pct)}"></td>
+    <td class="num"><input class="mini" data-f="tolerancia_qtd" type="text" inputmode="decimal" autocomplete="off" step="0.01" min="0" value="${numIn(p.tolerancia_qtd)}"></td>
+    <td class="num"><input class="mini" data-f="tolerancia_pct" type="text" inputmode="decimal" autocomplete="off" step="0.01" min="0" value="${numIn(p.tolerancia_pct)}"></td>
     <td><input data-f="ativo" type="checkbox" ${p.ativo !== false ? "checked" : ""} style="width:auto"></td>
     <td><button class="btn peq" data-salvar-prod>Salvar</button></td></tr>`;
 }
@@ -2032,7 +2042,7 @@ $("#cadp-lista").addEventListener("click", async (ev) => {
   const tr = b.closest("tr"), reg = {};
   tr.querySelectorAll("[data-f]").forEach((i) => {
     const f = i.dataset.f;
-    reg[f] = i.type === "checkbox" ? i.checked : i.type === "number" ? (i.value === "" ? null : Number(i.value)) : i.value.trim();
+    reg[f] = i.type === "checkbox" ? i.checked : i.inputMode === "decimal" ? (i.value === "" ? null : num(i.value)) : i.value.trim();
   });
   reg.nome = reg.nome.toUpperCase(); reg.categoria = reg.categoria.toUpperCase();
   if (!reg.nome || !reg.categoria) return toast("Nome e categoria são obrigatórios.");
@@ -2059,13 +2069,15 @@ function renderPrecos() {
     const v = vig[p.id];
     html += `<tr class="${p.critico ? "critico" : ""}"><td>${esc(p.nome)}</td><td>${esc(p.unidade)}</td>
       <td class="num">${v ? fmtR(v.preco_porcao) : `<span class="selo pend">Sem preço</span>`}</td><td>${v ? fmtData(v.vigencia_inicio) : ""}</td>
-      <td class="num"><input class="qtd" type="number" step="0.01" min="0" data-preco="${p.id}"></td></tr>`;
+      <td class="num"><input class="qtd" type="text" inputmode="decimal" autocomplete="off" step="0.01" min="0" data-preco="${p.id}"></td></tr>`;
   });
   $("#pre-lista").innerHTML = html;
 }
 $("#pre-salvar").addEventListener("click", async () => {
   const vig = $("#pre-vig").value;
-  const regs = $$("#pre-lista input[data-preco]").filter((i) => i.value !== "").map((i) => ({ produto_id: i.dataset.preco, preco_porcao: Number(i.value), vigencia_inicio: vig }));
+  const invalido = $$("#pre-lista input[data-preco]").find((i) => i.value !== "" && !(num(i.value) >= 0));
+  if (invalido) return toast("Há um preço inválido. Use só números, por exemplo 12,50.");
+  const regs = $$("#pre-lista input[data-preco]").filter((i) => i.value !== "").map((i) => ({ produto_id: i.dataset.preco, preco_porcao: num(i.value), vigencia_inicio: vig }));
   if (!vig) return toast("Informe a data de vigência.");
   if (!regs.length) return toast("Preencha ao menos um preço novo.");
   if (!confirm(`Salvar ${regs.length} preços com vigência a partir de ${fmtData(vig)}?`)) return;
@@ -2085,7 +2097,7 @@ function renderIdeal() {
     if (p.categoria !== cat) { cat = p.categoria; html += `<tr class="grupo"><td colspan="8">${esc(cat)}</td></tr>`; }
     html += `<tr class="${p.critico ? "critico" : ""}"><td>${esc(p.nome)} <small class="dica">${esc(p.unidade)}</small></td>
       ${DIAS.map((_, d) => { const k = p.id + "_" + d, sug = E.idealSug?.[k];
-        return `<td class="num"><input class="mini ${sug != null ? "sugerido" : ""}" type="number" min="0" step="0.01" data-ideal="${p.id}" data-dia="${d}" value="${sug ?? mapa[k] ?? ""}" aria-label="${esc(p.nome)} ${DIAS[d]}"></td>`; }).join("")}</tr>`;
+        return `<td class="num"><input class="mini ${sug != null ? "sugerido" : ""}" type="text" inputmode="decimal" autocomplete="off" min="0" step="0.01" data-ideal="${p.id}" data-dia="${d}" value="${numIn(sug ?? mapa[k] ?? "")}" aria-label="${esc(p.nome)} ${DIAS[d]}"></td>`; }).join("")}</tr>`;
   });
   $("#ide-lista").innerHTML = html;
 }
@@ -2093,7 +2105,7 @@ $("#ide-salvar").addEventListener("click", async () => {
   const existentes = new Set((E.ideal || []).map((x) => x.produto_id + "_" + x.dia_semana));
   const regs = $$("#ide-lista input[data-ideal]")
     .filter((i) => i.value !== "" || existentes.has(i.dataset.ideal + "_" + i.dataset.dia))
-    .map((i) => ({ produto_id: i.dataset.ideal, dia_semana: Number(i.dataset.dia), quantidade: i.value === "" ? 0 : Number(i.value) }));
+    .map((i) => ({ produto_id: i.dataset.ideal, dia_semana: Number(i.dataset.dia), quantidade: i.value === "" ? 0 : num(i.value) }));
   if (!regs.length) return toast("Preencha ao menos um valor.");
   const { error } = await sb.from("estoque_ideal").upsert(regs, { onConflict: "produto_id,dia_semana" });
   if (error) return toast(msgErro(error));
@@ -2135,13 +2147,13 @@ $("#causa-add").addEventListener("click", () => addSimples("#causa-novo", "causa
 // --- Parâmetros
 function renderParametros() {
   $("#par-lista").innerHTML = E.paramsLista.map((p) => `<tr><td>${esc(p.descricao)}</td>
-    <td class="num"><input class="mini" type="number" min="0" step="0.1" data-par="${p.chave}" value="${Number(p.valor)}"></td><td>${esc(p.unidade)}</td></tr>`).join("");
+    <td class="num"><input class="mini" type="text" inputmode="decimal" autocomplete="off" min="0" step="0.1" data-par="${p.chave}" value="${numIn(p.valor)}"></td><td>${esc(p.unidade)}</td></tr>`).join("");
 }
 $("#par-salvar").addEventListener("click", async () => {
-  const mud = $$("#par-lista input[data-par]").filter((i) => i.value !== "" && Number(i.value) !== E.params[i.dataset.par]);
+  const mud = $$("#par-lista input[data-par]").filter((i) => i.value !== "" && num(i.value) !== E.params[i.dataset.par]);
   if (!mud.length) return toast("Nada alterado.");
   for (const i of mud) {
-    const { error } = await sb.from("parametros").update({ valor: Number(i.value) }).eq("chave", i.dataset.par);
+    const { error } = await sb.from("parametros").update({ valor: num(i.value) }).eq("chave", i.dataset.par);
     if (error) return toast(msgErro(error));
   }
   await carregarCadastros(); renderParametros(); toast("Parâmetros salvos.");
@@ -2262,7 +2274,7 @@ $("#per-salvar").addEventListener("click", async () => {
   const erro = (m) => ($("#per-erro").textContent = m);
   erro("");
   const produto_id = $("#per-produto").value, praca_id = Number($("#per-praca").value);
-  const quantidade = Number($("#per-qtd").value), motivo = $("#per-motivo").value.trim();
+  const quantidade = num($("#per-qtd").value), motivo = $("#per-motivo").value.trim();
   if (!produto_id) return erro("Escolha o produto.");
   if (!praca_id) return erro("Escolha a praça.");
   if (!(quantidade > 0)) return erro("Informe a quantidade perdida.");
@@ -2393,7 +2405,7 @@ function semanaISO(ymd) {
   return { ano, semana: 1 + Math.round(((d - jan4) / 864e5 - 3 + ((jan4.getUTCDay() + 6) % 7)) / 7) };
 }
 const rotuloSemana = (ini) => `Semana ${semanaISO(ini).semana} (${fmtData(ini).slice(0, 5)} a ${fmtData(addDias(ini, 6)).slice(0, 5)})`;
-const scNum = (v) => (v === "" || v == null ? null : Number(v));
+const scNum = (v) => (v === "" || v == null ? null : num(v));
 
 async function carregarScorecard() {
   const [sem, itens] = await Promise.all([
@@ -2423,14 +2435,14 @@ function montarFormScorecard() {
   const itens = s ? E.scItens[s.id] || [] : [];
   const porCat = Object.fromEntries(itens.map((i) => [i.categoria_id, i]));
   const ultimaMeta = (E.scSemanas || [])[0]?.meta_pct;
-  $("#sc-fat").value = s ? Number(s.faturamento) : "";
-  $("#sc-meta").value = s ? Number(s.meta_pct) : ultimaMeta != null ? Number(ultimaMeta) : "";
+  $("#sc-fat").value = s ? Number(s.faturamento).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "";
+  $("#sc-meta").value = s ? numIn(s.meta_pct) : ultimaMeta != null ? numIn(ultimaMeta) : "";
   $("#sc-obs").value = s?.observacao || "";
   const cats = E.scCats.filter((c) => c.ativo || porCat[c.id]);
   $("#sc-grid").innerHTML = cats.map((c) => { const i = porCat[c.id]; return `<tr data-cat="${c.id}" data-salvo="${i ? 1 : ""}">
     <td>${esc(c.nome)}</td>
-    <td class="num"><input class="mini" type="number" inputmode="decimal" min="0" step="0.01" data-k="teo" value="${i ? Number(i.cmv_teorico) : ""}" aria-label="CMV teórico ${esc(c.nome)}"></td>
-    <td class="num"><input class="mini" type="number" inputmode="decimal" min="0" step="0.01" data-k="real" value="${i ? Number(i.cmv_real) : ""}" aria-label="CMV real ${esc(c.nome)}"></td>
+    <td class="num"><input class="mini" type="text" inputmode="decimal" autocomplete="off" min="0" step="0.01" data-k="teo" value="${i ? numIn(i.cmv_teorico) : ""}" aria-label="CMV teórico ${esc(c.nome)}"></td>
+    <td class="num"><input class="mini" type="text" inputmode="decimal" autocomplete="off" min="0" step="0.01" data-k="real" value="${i ? numIn(i.cmv_real) : ""}" aria-label="CMV real ${esc(c.nome)}"></td>
     <td class="num" data-o="pteo"></td><td class="num" data-o="preal"></td><td class="num" data-o="dif"></td></tr>`; }).join("")
     || `<tr><td colspan="6" class="vazio">Nenhuma categoria ativa. Cadastre em Cadastros → Categorias do CMV.</td></tr>`;
   const emAndamento = ini === segunda(hojeSP());
@@ -2440,6 +2452,10 @@ function montarFormScorecard() {
   recalcularScorecard();
 }
 $("#sc-semana").addEventListener("change", montarFormScorecard);
+// Ao sair do campo, mostra o valor já formatado (449.055,00), para conferir como o sistema entendeu
+const fmtCampoR = (el) => { const n = num(el.value); if (el.value.trim() !== "" && Number.isFinite(n)) el.value = n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+$("#sc-fat").addEventListener("blur", (e) => { fmtCampoR(e.target); recalcularScorecard(); });
+$("#sc-grid").addEventListener("focusout", (e) => { if (e.target.matches("input[data-k]")) { fmtCampoR(e.target); recalcularScorecard(); } });
 ["#sc-fat", "#sc-meta"].forEach((s) => $(s).addEventListener("input", recalcularScorecard));
 $("#sc-grid").addEventListener("input", recalcularScorecard);
 $("#sc-limpar").addEventListener("click", () => { $$("#sc-grid input").forEach((i) => (i.value = "")); $("#sc-fat").value = ""; $("#sc-obs").value = ""; recalcularScorecard(); });
@@ -2450,8 +2466,8 @@ function recalcularScorecard() {
   let tTeo = 0, tReal = 0, n = 0;
   $$("#sc-grid tr[data-cat]").forEach((tr) => {
     const teo = scNum(tr.querySelector('[data-k="teo"]').value), real = scNum(tr.querySelector('[data-k="real"]').value);
-    tr.querySelector('[data-o="pteo"]').textContent = fmtPct(pct(teo));
-    tr.querySelector('[data-o="preal"]').textContent = fmtPct(pct(real));
+    tr.querySelector('[data-o="pteo"]').textContent = fmtPct2(pct(teo));
+    tr.querySelector('[data-o="preal"]').textContent = fmtPct2(pct(real));
     const dif = tr.querySelector('[data-o="dif"]');
     dif.textContent = teo != null && real != null ? fmtR(real - teo) : "";
     dif.className = "num " + (teo != null && real != null ? clsNum(real - teo) : "");
@@ -2460,10 +2476,10 @@ function recalcularScorecard() {
   const total = $$("#sc-grid tr[data-cat]").length;
   const pReal = pct(tReal), bateu = pReal != null && meta != null ? +pReal.toFixed(2) <= meta : null;
   $("#sc-total").innerHTML = total ? `<tr><td>CMV de proteínas (${n} de ${total})</td><td class="num">${fmtR(tTeo)}</td><td class="num">${fmtR(tReal)}</td>
-    <td class="num">${fmtPct(pct(tTeo))}</td><td class="num">${fmtPct(pReal)}</td><td class="num ${clsNum(tReal - tTeo)}">${fmtR(tReal - tTeo)}</td></tr>` : "";
+    <td class="num">${fmtPct2(pct(tTeo))}</td><td class="num">${fmtPct2(pReal)}</td><td class="num ${clsNum(tReal - tTeo)}">${fmtR(tReal - tTeo)}</td></tr>` : "";
   $("#sc-resumo").innerHTML = pReal == null || !n ? `<span class="dica" style="margin:0">Preencha o faturamento e as categorias.</span>`
-    : `<span>CMV de proteínas</span><strong class="${bateu ? "bom" : bateu === false ? "ruim" : ""}">${fmtPct(pReal)}</strong>
-       ${meta != null ? `<span class="selo ${bateu ? "ok" : "ruim"}">${bateu ? "Bateu a meta" : "Acima da meta"} de ${fmtPct(meta)}</span>` : ""}`;
+    : `<span>CMV de proteínas</span><strong class="${bateu ? "bom" : bateu === false ? "ruim" : ""}">${fmtPct2(pReal)}</strong>
+       ${meta != null ? `<span class="selo ${bateu ? "ok" : "ruim"}">${bateu ? "Bateu a meta" : "Acima da meta"} de ${fmtPct2(meta)}</span>` : ""}`;
 }
 
 $("#sc-salvar").addEventListener("click", async () => {
@@ -2475,6 +2491,7 @@ $("#sc-salvar").addEventListener("click", async () => {
     const teo = scNum(tr.querySelector('[data-k="teo"]').value), real = scNum(tr.querySelector('[data-k="real"]').value);
     const nome = tr.cells[0].textContent;
     if ((teo == null) !== (real == null)) return toast(`${nome}: preencha o CMV teórico e o real.`);
+    if (teo != null && (Number.isNaN(teo) || Number.isNaN(real))) return toast(`${nome}: valor inválido. Use só números, por exemplo 1.234,56.`);
     if (teo != null && (teo < 0 || real < 0)) return toast(`${nome}: valores não podem ser negativos.`);
     if (teo != null) itens.push({ categoria_id: tr.dataset.cat, cmv_teorico: teo, cmv_real: real });
     else if (tr.dataset.salvo) remover.push(tr.dataset.cat);
@@ -2497,8 +2514,8 @@ function renderScorecard() {
   const ult = sem[0];
   const cls = (s) => (s.bateu_meta ? "bom" : "ruim");
   $("#sc-ind").innerHTML = ult ? `
-    <div class="indicador ${cls(ult)}"><span>CMV de proteínas, semana ${ult.semana}</span><strong>${fmtPct(ult.cmv_real_pct)}</strong><small>${ult.bateu_meta ? "Bateu a meta" : "Acima da meta"} de ${fmtPct(ult.meta_pct)}</small></div>
-    <div class="indicador"><span>CMV teórico, semana ${ult.semana}</span><strong>${fmtPct(ult.cmv_teorico_pct)}</strong><small>${fmtR(ult.cmv_teorico)}</small></div>
+    <div class="indicador ${cls(ult)}"><span>CMV de proteínas, semana ${ult.semana}</span><strong>${fmtPct2(ult.cmv_real_pct)}</strong><small>${ult.bateu_meta ? "Bateu a meta" : "Acima da meta"} de ${fmtPct2(ult.meta_pct)}</small></div>
+    <div class="indicador"><span>CMV teórico, semana ${ult.semana}</span><strong>${fmtPct2(ult.cmv_teorico_pct)}</strong><small>${fmtR(ult.cmv_teorico)}</small></div>
     <div class="indicador ${Number(ult.diferenca) > 0 ? "ruim" : "bom"}"><span>Real − teórico</span><strong>${fmtR(ult.diferenca)}</strong><small>${fmtQtd(Number(ult.cmv_real_pct) - Number(ult.cmv_teorico_pct))} p.p. sobre o faturamento</small></div>
     <div class="indicador"><span>Faturamento, semana ${ult.semana}</span><strong>${fmtR(ult.faturamento)}</strong><small>${ult.categorias_lancadas} de ${ult.categorias_total} categorias lançadas</small></div>
     <div class="indicador"><span>Semanas na meta</span><strong>${sem.filter((s) => s.bateu_meta).length} de ${sem.length}</strong><small>Todas as semanas lançadas</small></div>`
@@ -2529,15 +2546,15 @@ function renderScorecard() {
 
   E.scAbertos ??= new Set();
   const detalhe = (s) => `<div class="sub-tabela"><table><thead><tr><th>Categoria</th><th class="num">CMV teórico</th><th class="num">% teórico</th><th class="num">CMV real</th><th class="num">% real</th><th class="num">Real − teórico</th></tr></thead>
-    <tbody>${(E.scItens[s.id] || []).sort((a, b) => a.ordem - b.ordem).map((c) => `<tr><td>${esc(c.categoria)}</td><td class="num">${fmtR(c.cmv_teorico)}</td><td class="num">${fmtPct(c.cmv_teorico_pct)}</td>
-      <td class="num">${fmtR(c.cmv_real)}</td><td class="num">${fmtPct(c.cmv_real_pct)}</td><td class="num ${clsNum(c.diferenca)}">${fmtR(c.diferenca)}</td></tr>`).join("")}</tbody></table>
+    <tbody>${(E.scItens[s.id] || []).sort((a, b) => a.ordem - b.ordem).map((c) => `<tr><td>${esc(c.categoria)}</td><td class="num">${fmtR(c.cmv_teorico)}</td><td class="num">${fmtPct2(c.cmv_teorico_pct)}</td>
+      <td class="num">${fmtR(c.cmv_real)}</td><td class="num">${fmtPct2(c.cmv_real_pct)}</td><td class="num ${clsNum(c.diferenca)}">${fmtR(c.diferenca)}</td></tr>`).join("")}</tbody></table>
     ${s.observacao ? `<p class="dica" style="margin:8px 0 0">${esc(s.observacao)}</p>` : ""}</div>`;
   $("#sc-lista").innerHTML = sem.length ? sem.map((s) => { const ab = E.scAbertos.has(s.id); return `
     <tr class="linha-prod ${ab ? "aberta" : ""}">
       <td><strong>Semana ${s.semana}</strong><br><small class="dica">${fmtData(s.semana_inicio)} a ${fmtData(s.semana_fim)}</small></td>
-      <td class="num">${fmtR(s.faturamento)}</td><td class="num">${fmtR(s.cmv_teorico)}</td><td class="num">${fmtPct(s.cmv_teorico_pct)}</td>
-      <td class="num">${fmtR(s.cmv_real)}</td><td class="num"><strong class="${s.bateu_meta ? "pos" : "neg"}">${fmtPct(s.cmv_real_pct)}</strong></td>
-      <td class="num">${fmtPct(s.meta_pct)}</td>
+      <td class="num">${fmtR(s.faturamento)}</td><td class="num">${fmtR(s.cmv_teorico)}</td><td class="num">${fmtPct2(s.cmv_teorico_pct)}</td>
+      <td class="num">${fmtR(s.cmv_real)}</td><td class="num"><strong class="${s.bateu_meta ? "pos" : "neg"}">${fmtPct2(s.cmv_real_pct)}</strong></td>
+      <td class="num">${fmtPct2(s.meta_pct)}</td>
       <td class="sc-status"><span class="selo ${s.bateu_meta ? "ok" : "ruim"}">${s.bateu_meta ? "Bateu a meta" : "Acima da meta"}</span></td>
       <td class="num">${s.categorias_lancadas}/${s.categorias_total}</td>
       <td><div class="acoes"><button class="btn sec peq" data-sc-det="${s.id}" aria-expanded="${ab}">${ab ? "Ocultar" : "Categorias"}</button>
@@ -2557,7 +2574,7 @@ function renderScorecard() {
       { k: "faturamento", rotulo: "Faturamento", num: true, fmt: (v) => (v === "" ? "" : fmtR(v)) },
       { k: "cmv_teorico", rotulo: "CMV teórico", num: true, fmt: fmtR }, { k: "teo_pct", rotulo: "% teórico", num: true, fmt: fmtPct },
       { k: "cmv_real", rotulo: "CMV real", num: true, fmt: fmtR }, { k: "real_pct", rotulo: "% real", num: true, fmt: fmtPct },
-      { k: "meta", rotulo: "Meta %", num: true, fmt: (v) => (v === "" ? "" : fmtPct(v)) }, { k: "resultado", rotulo: "Resultado" }],
+      { k: "meta", rotulo: "Meta %", num: true, fmt: (v) => (v === "" ? "" : fmtPct2(v)) }, { k: "resultado", rotulo: "Resultado" }],
     linhas };
 }
 
