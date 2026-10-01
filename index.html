@@ -147,6 +147,20 @@ dialog::backdrop { background: rgba(19, 38, 47, .55); }
 tr.recontar td { background: #FBF3E6 !important; }
 input.sugerido { background: #FBF3E6; border-color: var(--ambar); }
 .selo.obs { background: #EDE3F4; color: #5B3A7A; }
+.selo.just { background: #F7EBD7; color: var(--ambar); }
+.per-form { background: var(--papel); border: 1px solid var(--linha); border-radius: 6px; padding: 16px; max-width: 720px; margin-bottom: 24px; }
+.per-grade { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .per-grade { grid-template-columns: 1fr; } }
+.per-un { font-size: 13px; color: var(--tinta-2); margin-top: 4px; min-height: 18px; }
+.sc-form { background: var(--papel); border: 1px solid var(--linha); border-radius: 6px; padding: 16px; margin-bottom: 24px; }
+.sc-form .tabela-wrap { margin-bottom: 12px; }
+.sc-form td input.mini { width: 130px; }
+.sc-form .barra-acao { background: var(--papel); }
+tfoot td { font-weight: 700; background: #F6F9FA; border-top: 1px solid var(--linha); }
+.sc-resumo { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-right: auto; }
+.sc-resumo strong { font: 700 22px var(--cond); }
+.sc-resumo .bom { color: var(--ok); } .sc-resumo .ruim { color: var(--casco); }
+td.sc-status { white-space: nowrap; }
 tr.detalhe > td { background: #F6F9FA; padding: 6px 12px 14px; }
 .sub-tabela { background: var(--papel); border: 1px solid var(--linha-2); border-radius: 4px; overflow-x: auto; }
 .sub-tabela th { background: #EEF3F5; font-size: 13px; }
@@ -201,6 +215,7 @@ tr.linha-prod.aberta > td { border-bottom-color: transparent; }
     </div>
     <nav id="nav" aria-label="Menu principal">
       <button class="nav-item" data-aba="painel">Painel</button>
+      <button class="nav-item" data-aba="perdas" data-lider>Perdas <span id="nav-perdas-badge"></span></button>
       <div class="menu">
         <button class="nav-item" data-menu aria-haspopup="true">Operação <span class="seta">▾</span></button>
         <div class="menu-lista">
@@ -221,6 +236,7 @@ tr.linha-prod.aberta > td { border-bottom-color: transparent; }
       <div class="menu">
         <button class="nav-item" data-menu aria-haspopup="true">Análises <span class="seta">▾</span></button>
         <div class="menu-lista">
+          <button data-aba="scorecard" data-gestor>CMV de proteínas</button>
           <button data-aba="indicadores" data-gestor>Indicadores</button>
           <button data-aba="relatorios">Relatórios</button>
         </div>
@@ -262,7 +278,7 @@ tr.linha-prod.aberta > td { border-bottom-color: transparent; }
         <div class="bloco"><h3>Tendência semanal</h3><div class="grafico"><canvas id="g-tendencia"></canvas></div></div>
         <div class="bloco"><h3>Pareto do desvio (R$)</h3><div class="grafico"><canvas id="g-pareto"></canvas></div></div>
         <div class="bloco"><h3>Desvio por dia da semana</h3><p class="dica">Dia em que a contagem apurou o desvio.</p><div class="grafico"><canvas id="g-semana"></canvas></div></div>
-        <div class="bloco"><h3>Perdas registradas × desvio por causa (R$)</h3><div class="grafico"><canvas id="g-causas"></canvas></div></div>
+        <div class="bloco"><h3>Desvio justificado × causas do restante (R$)</h3><div class="grafico"><canvas id="g-causas"></canvas></div></div>
       </div>
       <h3>Aderência ao processo</h3>
       <div class="indicadores" id="ind-aderencia"></div>
@@ -277,6 +293,84 @@ tr.linha-prod.aberta > td { border-bottom-color: transparent; }
         <button class="btn sec peq" data-exp="cobertura" data-fmt="pdf">PDF</button></div>
       <p class="dica">Estoque da câmara principal dividido pela retirada média diária dos últimos 28 dias.</p>
       <div class="tabela-wrap"><table><thead><tr><th>Produto</th><th class="num">Estoque principal</th><th class="num">Retirada média/dia</th><th class="num">Cobertura</th></tr></thead><tbody id="ind-cob"></tbody></table></div>
+    </section>
+
+    <!-- PERDAS -->
+    <section id="aba-perdas" class="oculto">
+      <div class="topo-secao"><h2>Perdas</h2></div>
+      <div class="subnav" id="per-nav">
+        <button data-psub="registrar" aria-selected="true">Registrar perda</button>
+        <button data-psub="confirmar" data-gestor>Confirmação <span id="per-badge"></span></button>
+      </div>
+
+      <div id="per-registrar">
+        <p class="dica">Perda é desvio. O registro não apaga o desvio: ele mostra onde e por que o produto se perdeu. A perda só entra no sistema depois que a gestão confirma.</p>
+        <div class="per-form">
+          <div class="campo"><label for="per-produto">Produto</label><select id="per-produto"></select><div class="per-un" id="per-un"></div></div>
+          <div class="per-grade">
+            <div class="campo"><label for="per-praca">Praça</label><select id="per-praca"></select></div>
+            <div class="campo"><label for="per-qtd">Quantidade perdida</label><input id="per-qtd" type="number" inputmode="decimal" min="0.01" step="0.01"></div>
+            <div class="campo"><label for="per-data">Data e hora da perda</label><input id="per-data" type="datetime-local"></div>
+          </div>
+          <div class="campo"><label for="per-motivo">Motivo</label><input id="per-motivo" list="per-motivos" autocomplete="off" placeholder="O que aconteceu"></div>
+          <datalist id="per-motivos"><option value="Queimou no preparo"><option value="Caiu no chão"><option value="Erro de preparo"><option value="Devolução de cliente"><option value="Produto vencido ou fora do padrão"><option value="Erro de porcionamento"></datalist>
+          <div class="campo"><label for="per-obs">Observação (opcional)</label><input id="per-obs" autocomplete="off"></div>
+          <div class="erro" id="per-erro"></div>
+          <button class="btn" id="per-salvar">Registrar perda</button>
+        </div>
+        <h3 id="per-lista-titulo">Registros recentes</h3>
+        <div class="tabela-wrap"><table><thead><tr><th>Data e hora</th><th>Produto</th><th>Praça</th><th class="num">Qtd</th><th>Motivo</th><th>Registrado por</th><th>Situação</th><th></th></tr></thead><tbody id="per-lista"></tbody></table></div>
+      </div>
+
+      <div id="per-confirmar" class="oculto">
+        <div class="filtros">
+          <div class="campo"><label for="pc-status">Situação</label>
+            <select id="pc-status"><option value="PENDENTE">Aguardando confirmação</option><option value="CONFIRMADA">Confirmadas</option><option value="RECUSADA">Recusadas</option><option value="CANCELADA">Canceladas</option><option value="">Todas</option></select></div>
+          <div class="campo"><label for="pc-de">De</label><input type="date" id="pc-de"></div>
+          <div class="campo"><label for="pc-ate">Até</label><input type="date" id="pc-ate"></div>
+          <div class="campo"><label for="pc-praca">Praça</label><select id="pc-praca"></select></div>
+          <button class="btn sec peq" data-exp="perdas" data-fmt="xlsx">Excel</button>
+          <button class="btn sec peq" data-exp="perdas" data-fmt="pdf">PDF</button>
+        </div>
+        <p class="dica">Confirmar dá saída do produto da cozinha como "Perda (desvio justificado)". O desvio continua contando, mas passa a aparecer como justificado, com a praça e o motivo.</p>
+        <div class="indicadores" id="pc-ind"></div>
+        <div class="tabela-wrap"><table><thead><tr><th>Data e hora</th><th>Produto</th><th>Praça</th><th class="num">Qtd</th><th class="num">R$</th><th>Motivo</th><th>Registrado por</th><th>Situação</th><th></th></tr></thead><tbody id="pc-lista"></tbody></table></div>
+        <div class="barra-acao" id="pc-barra"><span class="dica" style="margin:0" id="pc-resumo"></span><button class="btn" id="pc-confirmar-todas">Confirmar todas as pendentes listadas</button></div>
+      </div>
+    </section>
+
+    <!-- SCORECARD: CMV DE PROTEÍNAS -->
+    <section id="aba-scorecard" class="oculto">
+      <div class="topo-secao"><h2>CMV de proteínas</h2>
+        <button class="btn sec peq" data-exp="scorecard" data-fmt="xlsx">Excel</button>
+        <button class="btn sec peq" data-exp="scorecard" data-fmt="pdf">PDF</button>
+      </div>
+      <p class="dica">CMV de proteínas = soma do CMV real das categorias ÷ faturamento da semana × 100. Na meta ou abaixo fica verde; acima, vermelho.</p>
+      <div class="indicadores" id="sc-ind"></div>
+      <div class="graficos">
+        <div class="bloco"><h3>CMV de proteínas por semana</h3><div class="grafico"><canvas id="g-scorecard"></canvas></div></div>
+        <div class="bloco"><h3>CMV real por categoria (última semana)</h3><div class="grafico"><canvas id="g-sc-cat"></canvas></div></div>
+      </div>
+
+      <h3>Lançamento da semana</h3>
+      <div class="sc-form">
+        <div class="filtros">
+          <div class="campo"><label for="sc-semana">Semana</label><select id="sc-semana" style="min-width:290px"></select></div>
+          <div class="campo"><label for="sc-fat">Faturamento da semana (R$)</label><input id="sc-fat" type="number" inputmode="decimal" min="0.01" step="0.01" style="width:190px"></div>
+          <div class="campo"><label for="sc-meta">Meta de CMV (%)</label><input id="sc-meta" type="number" inputmode="decimal" min="0.01" max="100" step="0.01" style="width:120px"></div>
+        </div>
+        <p class="dica" id="sc-aviso-semana"></p>
+        <div class="tabela-wrap"><table>
+          <thead><tr><th>Categoria</th><th class="num">CMV teórico (R$)</th><th class="num">CMV real (R$)</th><th class="num">% teórico</th><th class="num">% real</th><th class="num">Real − teórico</th></tr></thead>
+          <tbody id="sc-grid"></tbody>
+          <tfoot id="sc-total"></tfoot>
+        </table></div>
+        <div class="campo"><label for="sc-obs">Observação (opcional)</label><input id="sc-obs" autocomplete="off"></div>
+        <div class="barra-acao"><div class="sc-resumo" id="sc-resumo"></div><button class="btn sec" id="sc-limpar">Limpar</button><button class="btn" id="sc-salvar">Salvar semana</button></div>
+      </div>
+
+      <h3>Semanas lançadas</h3>
+      <div class="tabela-wrap"><table><thead><tr><th>Semana</th><th class="num">Faturamento</th><th class="num">CMV teórico</th><th class="num">% teórico</th><th class="num">CMV real</th><th class="num">% real</th><th class="num">Meta</th><th>Resultado</th><th class="num">Categorias</th><th></th></tr></thead><tbody id="sc-lista"></tbody></table></div>
     </section>
 
     <!-- REQUISIÇÕES -->
@@ -371,10 +465,10 @@ tr.linha-prod.aberta > td { border-bottom-color: transparent; }
           <button class="btn sec peq" data-exp="desvios" data-fmt="xlsx">Excel</button>
           <button class="btn sec peq" data-exp="desvios" data-fmt="pdf">PDF</button>
         </div>
-        <p class="dica">Desvio positivo é falta (sumiu); negativo é sobra. Calculado entre duas contagens seguidas do mesmo produto.</p>
+        <p class="dica">Desvio positivo é falta (sumiu); negativo é sobra. Calculado entre duas contagens seguidas do mesmo produto. Perda confirmada continua sendo desvio: aparece como <strong>justificado</strong>, e o restante como <strong>sem justificativa</strong>.</p>
         <div class="indicadores" id="dev-ind"></div>
         <h3>Por produto</h3>
-        <div class="tabela-wrap"><table><thead><tr><th>Produto</th><th class="num">Ocorrências</th><th class="num">Fora da tolerância</th><th class="num">Desvio (qtd)</th><th class="num">Desvio (R$)</th><th></th></tr></thead><tbody id="dev-rank"></tbody></table></div>
+        <div class="tabela-wrap"><table><thead><tr><th>Produto</th><th class="num">Ocorrências</th><th class="num">Fora da tolerância</th><th class="num">Desvio total</th><th class="num">Justificado</th><th class="num">Sem justificativa</th><th class="num">Desvio total (R$)</th><th class="num">Sem justificativa (R$)</th><th></th></tr></thead><tbody id="dev-rank"></tbody></table></div>
       </div>
 
       <div id="dev-trat" class="oculto">
@@ -453,6 +547,8 @@ tr.linha-prod.aberta > td { border-bottom-color: transparent; }
         <button data-sub="tipos">Tipos de saída</button>
         <button data-sub="justs">Justificativas</button>
         <button data-sub="causas">Causas de desvio</button>
+        <button data-sub="pracas">Praças</button>
+        <button data-sub="sccats">Categorias do CMV</button>
         <button data-sub="parametros">Parâmetros</button>
         <button data-sub="usuarios">Usuários</button>
       </div>
@@ -501,6 +597,18 @@ tr.linha-prod.aberta > td { border-bottom-color: transparent; }
         <div class="tabela-wrap"><table><thead><tr><th>Causa</th><th>Ativo</th></tr></thead><tbody id="causa-lista"></tbody></table></div>
       </div>
 
+      <div id="cad-pracas" class="oculto">
+        <div class="filtros"><div class="campo"><label for="praca-novo">Nova praça da cozinha</label><input id="praca-novo"></div><button class="btn" id="praca-add">Adicionar</button></div>
+        <p class="dica">Praças onde os chefes registram perdas. Desativar tira a praça do registro, sem apagar o histórico.</p>
+        <div class="tabela-wrap"><table><thead><tr><th>Praça</th><th>Ativo</th></tr></thead><tbody id="praca-lista"></tbody></table></div>
+      </div>
+
+      <div id="cad-sccats" class="oculto">
+        <div class="filtros"><div class="campo"><label for="sccat-novo">Nova categoria do CMV de proteínas</label><input id="sccat-novo" list="lista-categorias"></div><button class="btn" id="sccat-add">Adicionar</button></div>
+        <p class="dica">Categorias que somam no CMV de proteínas. Use o mesmo nome da categoria dos produtos.</p>
+        <div class="tabela-wrap"><table><thead><tr><th>Categoria</th><th>Ativo</th></tr></thead><tbody id="sccat-lista"></tbody></table></div>
+      </div>
+
       <div id="cad-parametros" class="oculto">
         <p class="dica">Regras usadas nos indicadores, na recontagem, na reincidência e no estoque ideal sugerido.</p>
         <div class="tabela-wrap"><table><thead><tr><th>Parâmetro</th><th class="num">Valor</th><th>Unidade</th></tr></thead><tbody id="par-lista"></tbody></table></div>
@@ -514,10 +622,10 @@ tr.linha-prod.aberta > td { border-bottom-color: transparent; }
           <div class="campo"><label for="usu-email">E-mail</label><input id="usu-email" type="email" autocomplete="off"></div>
           <div class="campo"><label for="usu-senha">Senha inicial</label><input id="usu-senha" type="text" autocomplete="off" placeholder="Mínimo 6 caracteres"></div>
           <div class="campo"><label for="usu-papel">Perfil</label>
-            <select id="usu-papel"><option value="ESTOQUISTA">Estoquista</option><option value="GESTOR">Gestão</option></select></div>
+            <select id="usu-papel"><option value="ESTOQUISTA">Estoquista</option><option value="LIDER">Líder de cozinha</option><option value="GESTOR">Gestão</option></select></div>
           <button class="btn" id="usu-criar">Criar login</button>
         </div>
-        <p class="dica">Estoquista lança requisições, contagens, saídas e entradas, mas não vê estoque e desvios nem edita lançamentos. Gestão tem acesso total.</p>
+        <p class="dica">Estoquista lança requisições, contagens, saídas e entradas, mas não vê estoque e desvios nem edita lançamentos. Líder de cozinha só registra perdas e vê os próprios registros. Gestão tem acesso total.</p>
         <div class="tabela-wrap"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Ativo</th><th></th></tr></thead><tbody id="usu-lista"></tbody></table></div>
       </div>
     </section>
@@ -596,7 +704,12 @@ const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const NOME_LOCAL = { COZINHA: "Cozinha", PRINCIPAL: "Câmara principal" };
 const NOME_TIPO_CONT = { DIARIA: "Diária", CHECK: "Check", GERAL: "Geral" };
 const NOME_TABELA = { entradas: "Entrada", saidas: "Saída", requisicoes: "Requisição", requisicao_itens: "Item de requisição",
-  contagens: "Contagem", contagem_itens: "Item de contagem", produtos: "Produto", precos: "Preço", estoque_ideal: "Estoque ideal", perfis: "Usuário", desvio_tratativas: "Tratativa de desvio" };
+  contagens: "Contagem", contagem_itens: "Item de contagem", produtos: "Produto", precos: "Preço", estoque_ideal: "Estoque ideal", perfis: "Usuário", desvio_tratativas: "Tratativa de desvio",
+  perdas: "Perda", pracas: "Praça", scorecard_semanal: "CMV de proteínas (semana)", scorecard_itens: "CMV de proteínas (categoria)", scorecard_categorias: "Categoria do CMV" };
+const NOME_PAPEL = { GESTOR: "Gestão", ESTOQUISTA: "Estoquista", LIDER: "Líder de cozinha" };
+const NOME_ST_PERDA = { PENDENTE: "Aguardando confirmação", CONFIRMADA: "Confirmada", RECUSADA: "Recusada", CANCELADA: "Cancelada" };
+const CLS_ST_PERDA = { PENDENTE: "pend", CONFIRMADA: "ok", RECUSADA: "ruim", CANCELADA: "neutro" };
+const TIPO_PERDA = 3; // tipos_saida: "Perda (desvio justificado)"
 const NOME_STATUS = { ABERTO: "Aberto", EM_ANALISE: "Em análise", CONCLUIDO: "Concluído" };
 const CLS_STATUS = { ABERTO: "ruim", EM_ANALISE: "pend", CONCLUIDO: "ok" };
 const DIAS_SEG = [1, 2, 3, 4, 5, 6, 0];
@@ -622,6 +735,7 @@ const fmtQtd = (n) => n == null ? "" : Number(n).toLocaleString("pt-BR", { maxim
 const fmtR = (n) => n == null ? "sem preço" : Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const isGestor = () => E.perfil?.papel === "GESTOR";
+const isLider = () => E.perfil?.papel === "LIDER";
 const ordCat = (c) => { const i = CAT_ORDEM.indexOf(c); return i < 0 ? 99 : i; };
 const ordenarProdutos = (lista) => [...lista].sort((a, b) => ordCat(a.categoria) - ordCat(b.categoria) || a.categoria.localeCompare(b.categoria) || a.nome.localeCompare(b.nome));
 const clsNum = (n) => Number(n) > 0 ? "neg" : Number(n) < 0 ? "pos" : "";
@@ -747,12 +861,17 @@ async function iniciar(user) {
     const { data: perfil } = await sb.from("perfis").select("*").eq("id", user.id).maybeSingle();
     if (!perfil || !perfil.ativo) { await sb.auth.signOut(); $("#login-erro").textContent = "Usuário sem perfil ativo. Fale com a gestão."; return; }
     E.perfil = perfil;
-    $("#usuario-nome").textContent = `${perfil.nome} (${isGestor() ? "Gestão" : "Estoquista"})`;
+    $("#usuario-nome").textContent = `${perfil.nome} (${NOME_PAPEL[perfil.papel] || perfil.papel})`;
     $$("[data-gestor]").forEach((el) => el.classList.toggle("oculto", !isGestor()));
+    // Líder de cozinha: só a aba de perdas
+    $$("#nav > *").forEach((el) => {
+      if (isLider() && !el.hasAttribute("data-lider")) el.classList.add("oculto");
+      else if (!el.hasAttribute("data-gestor")) el.classList.remove("oculto");
+    });
     $("#login").classList.add("oculto"); $("#app").classList.remove("oculto");
     await carregarCadastros();
     prepararFormularios();
-    abrirAba("painel");
+    abrirAba(isLider() ? "perdas" : "painel");
   } finally { iniciando = false; }
 }
 
@@ -794,6 +913,13 @@ async function carregarCadastros() {
   E.paramsLista = pa.data || [];
   E.params = Object.fromEntries(E.paramsLista.map((x) => [x.chave, Number(x.valor)]));
   E.causas = ca.data || [];
+  const [pr, sc] = await Promise.all([sb.from("pracas").select("*").order("id"), sb.from("scorecard_categorias").select("*").order("ordem").order("nome")]);
+  E.pracas = pr.data || [];
+  E.scCats = sc.data || [];
+  const pracasAtivas = E.pracas.filter((x) => x.ativo);
+  $("#per-praca").innerHTML = `<option value="">Selecione</option>` + pracasAtivas.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
+  $("#pc-praca").innerHTML = `<option value="">Todas</option>` + E.pracas.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
+  $("#per-produto").innerHTML = opcoesProdutos($("#per-produto").value);
   $("#trat-f-causa").innerHTML = `<option value="">Selecione</option>` + E.causas.filter((x) => x.ativo).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
   $("#req-just").innerHTML = `<option value="">Selecione</option>` + E.justificativas.filter((x) => x.ativo).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
   $("#sai-tipo").innerHTML = E.tipos.filter((x) => x.ativo).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
@@ -810,6 +936,8 @@ function prepararFormularios() {
   $("#pre-vig").value = hoje;
   $("#ind-de").value = addDias(segunda(hoje), -49); $("#ind-ate").value = hoje;
   $("#trat-de").value = addDias(hoje, -29); $("#trat-ate").value = hoje;
+  $("#per-data").value = agoraInput();
+  $("#pc-de").value = addDias(hoje, -29); $("#pc-ate").value = hoje;
   montarContagem(); montarSaidas();
   montarGrade($("#ent-grid"), E.produtos);
 }
@@ -823,7 +951,7 @@ $("#painel-atualizar").addEventListener("click", carregarPainel);
 async function carregarPainel() {
   const hoje = hojeSP(), de = addDias(hoje, -6), g = isGestor();
   const vazio = Promise.resolve({ data: [] });
-  const [extras, desv, pend, saldos, precos, trat, obs] = await Promise.all([
+  const [extras, desv, pend, saldos, precos, trat, obs, perdasPend] = await Promise.all([
     sb.from("v_requisicoes_dia").select("numero,dia,data_hora,justificativa_extra,comentario").gt("ordem_dia", 1).gte("dia", de).order("data_hora", { ascending: false }),
     g ? sb.from("v_desvios").select("nome,dia,desvio,desvio_valor,unidade").eq("local", "COZINHA").eq("fora_tolerancia", true).gte("dia", de).order("data_hora", { ascending: false }) : vazio,
     sb.from("v_pendencias_scan").select("numero"),
@@ -831,7 +959,10 @@ async function carregarPainel() {
     g ? sb.from("precos").select("produto_id,vigencia_inicio").lte("vigencia_inicio", hoje) : vazio,
     g ? sb.from("v_tratativas").select("item_id").neq("status", "CONCLUIDO") : vazio,
     g ? sb.from("v_observacao").select("*") : vazio,
+    g ? sb.from("perdas").select("id", { count: "exact", head: true }).eq("status", "PENDENTE") : Promise.resolve({ count: 0 }),
   ]);
+  const nPerdas = perdasPend.count || 0;
+  atualizarBadgePerdas(nPerdas);
   const cob = g ? (await calcularCobertura()).filter((c) => c.alerta) : [];
   const criticos = new Set(E.produtos.filter((p) => p.critico).map((p) => p.id));
   const semContagem = (saldos.data || []).filter((s) => criticos.has(s.produto_id) && (!s.ultima_contagem || diaSP(s.ultima_contagem) !== hoje));
@@ -844,7 +975,8 @@ async function carregarPainel() {
   $("#painel-ind").innerHTML = (g ? `
     <div class="indicador ${nTrat ? "ruim" : ""}"><span>Desvios aguardando tratativa</span><strong>${nTrat}</strong></div>
     <div class="indicador"><span>Falta em R$ fora da tolerância (7 dias)</span><strong class="${faltaR > 0 ? "neg" : ""}">${fmtR(faltaR)}</strong></div>
-    <div class="indicador ${nObs ? "ruim" : ""}"><span>Itens em observação</span><strong>${nObs}</strong></div>` : "") + `
+    <div class="indicador ${nObs ? "ruim" : ""}"><span>Itens em observação</span><strong>${nObs}</strong></div>
+    <div class="indicador ${nPerdas ? "ruim" : ""}"><span>Perdas aguardando confirmação</span><strong>${nPerdas}</strong></div>` : "") + `
     <div class="indicador"><span>Retiradas extras (7 dias)</span><strong>${extras.data?.length || 0}</strong></div>
     <div class="indicador"><span>Requisições sem scan</span><strong>${pend.data?.length || 0}</strong></div>`;
 
@@ -906,8 +1038,8 @@ async function carregarIndicadores() {
   const ini = inicioDia(de), fim = inicioDia(addDias(ate, 1));
 
   const [desv, saidas, trat, reqs, conts, obs, cob] = await Promise.all([
-    tudo(() => { let x = sb.from("v_desvios").select("produto_id,nome,unidade,dia,desvio,desvio_valor,fora_tolerancia,local").gte("dia", de).lte("dia", ate); return local ? x.eq("local", local) : x; }),
-    tudo(() => sb.from("v_saidas").select("produto_id,nome,unidade,tipo,dia,quantidade,valor").gte("dia", de).lte("dia", ate)),
+    tudo(() => { let x = sb.from("v_desvios_justificativa").select("produto_id,nome,unidade,dia,desvio,desvio_valor,desvio_total,desvio_total_valor,justificado_valor,fora_tolerancia,local").gte("dia", de).lte("dia", ate); return local ? x.eq("local", local) : x; }),
+    tudo(() => sb.from("v_saidas").select("produto_id,nome,unidade,tipo,tipo_saida_id,dia,quantidade,valor").gte("dia", de).lte("dia", ate)),
     tudo(() => { let x = sb.from("v_tratativas").select("item_id,status,causa,causa_explica,desvio_valor").gte("dia", de).lte("dia", ate); return local ? x.eq("local", local) : x; }),
     tudo(() => sb.from("v_requisicoes_dia").select("dia,scan_path,ordem_dia,justificativa_extra").gte("dia", de).lte("dia", ate)),
     tudo(() => sb.from("v_contagens").select("produto_id,data_hora").eq("local", "COZINHA").gte("data_hora", ini).lt("data_hora", fim)),
@@ -916,20 +1048,23 @@ async function carregarIndicadores() {
   ]);
 
   // ---- Totais
-  const consumoR = saidas.reduce((s, x) => s + (Number(x.valor) || 0), 0);
-  const semPreco = saidas.filter((x) => x.valor == null).length + desv.filter((x) => x.desvio_valor == null && Number(x.desvio) !== 0).length;
-  const desvioR = desv.reduce((s, x) => s + (Number(x.desvio_valor) || 0), 0);
-  const perdasR = saidas.filter((x) => x.tipo === "Perda").reduce((s, x) => s + (Number(x.valor) || 0), 0);
+  // Perda confirmada é desvio justificado: entra no desvio total, não no consumo
+  const consumoR = saidas.filter((x) => x.tipo_saida_id !== TIPO_PERDA).reduce((s, x) => s + (Number(x.valor) || 0), 0);
+  const semPreco = saidas.filter((x) => x.valor == null).length + desv.filter((x) => x.desvio_total_valor == null && Number(x.desvio_total) !== 0).length;
+  const desvioR = desv.reduce((s, x) => s + (Number(x.desvio_total_valor) || 0), 0);
+  const semJustR = desv.reduce((s, x) => s + (Number(x.desvio_valor) || 0), 0);
+  const perdasR = desv.reduce((s, x) => s + (Number(x.justificado_valor) || 0), 0);
   const indice = consumoR > 0 ? desvioR / consumoR * 100 : null;
   const pendTrat = trat.filter((t) => t.status !== "CONCLUIDO").length;
   const obsSet = new Set(obs.map((o) => o.produto_id));
   const clsMeta = (v) => v == null ? "" : v > meta ? "ruim" : "bom";
 
   $("#ind-cards").innerHTML = `
-    <div class="indicador ${clsMeta(indice)}"><span>Índice de desvio</span><strong>${fmtPct(indice)}</strong><small>Meta: até ${fmtPct(meta)}</small></div>
-    <div class="indicador"><span>Desvio líquido</span><strong class="${desvioR > 0 ? "neg" : ""}">${fmtR(desvioR)}</strong><small>Falta menos sobra</small></div>
-    <div class="indicador"><span>Consumo valorizado</span><strong>${fmtR(consumoR)}</strong><small>Todas as saídas da cozinha</small></div>
-    <div class="indicador"><span>Perdas registradas</span><strong>${fmtR(perdasR)}</strong><small>Saídas do tipo Perda</small></div>
+    <div class="indicador ${clsMeta(indice)}"><span>Índice de desvio</span><strong>${fmtPct(indice)}</strong><small>Inclui os justificados. Meta: até ${fmtPct(meta)}</small></div>
+    <div class="indicador"><span>Desvio total</span><strong class="${desvioR > 0 ? "neg" : ""}">${fmtR(desvioR)}</strong><small>Falta menos sobra, com os justificados</small></div>
+    <div class="indicador"><span>Desvio justificado (perdas)</span><strong>${fmtR(perdasR)}</strong><small>Perdas confirmadas</small></div>
+    <div class="indicador"><span>Desvio sem justificativa</span><strong class="${semJustR > 0 ? "neg" : ""}">${fmtR(semJustR)}</strong><small>Ninguém explicou</small></div>
+    <div class="indicador"><span>Consumo valorizado</span><strong>${fmtR(consumoR)}</strong><small>Vendas e testes de prato</small></div>
     <div class="indicador ${pendTrat ? "ruim" : "bom"}"><span>Tratativas pendentes</span><strong>${pendTrat}</strong><small>de ${trat.length} desvios fora da tolerância</small></div>
     <div class="indicador ${obsSet.size ? "ruim" : ""}"><span>Itens em observação</span><strong>${obsSet.size}</strong><small>Desvio recorrente</small></div>`;
   $("#ind-aviso").textContent = semPreco ? `Atenção: ${semPreco} lançamentos sem preço vigente ficaram fora dos valores em R$. Cadastre os preços para o índice ficar completo.` : "";
@@ -937,9 +1072,9 @@ async function carregarIndicadores() {
   // ---- Semanas
   const semanas = [];
   for (let w = segunda(de); w <= ate; w = addDias(w, 7)) semanas.push(w);
-  const porSem = Object.fromEntries(semanas.map((w) => [w, { desvio: 0, consumo: 0, extras: 0 }]));
-  desv.forEach((x) => { const w = porSem[segunda(x.dia)]; if (w) w.desvio += Number(x.desvio_valor) || 0; });
-  saidas.forEach((x) => { const w = porSem[segunda(x.dia)]; if (w) w.consumo += Number(x.valor) || 0; });
+  const porSem = Object.fromEntries(semanas.map((w) => [w, { desvio: 0, just: 0, semJust: 0, consumo: 0, extras: 0 }]));
+  desv.forEach((x) => { const w = porSem[segunda(x.dia)]; if (w) { w.desvio += Number(x.desvio_total_valor) || 0; w.just += Number(x.justificado_valor) || 0; w.semJust += Number(x.desvio_valor) || 0; } });
+  saidas.forEach((x) => { const w = porSem[segunda(x.dia)]; if (w && x.tipo_saida_id !== TIPO_PERDA) w.consumo += Number(x.valor) || 0; });
   reqs.forEach((x) => { const w = porSem[segunda(x.dia)]; if (w && x.ordem_dia > 1) w.extras++; });
   const labelsSem = semanas.map((w) => fmtData(w).slice(0, 5));
   grafico("g-tendencia", {
@@ -947,18 +1082,19 @@ async function carregarIndicadores() {
     data: {
       labels: labelsSem,
       datasets: [
-        { type: "bar", label: "Desvio (R$)", data: semanas.map((w) => +porSem[w].desvio.toFixed(2)), backgroundColor: COR.casco, yAxisID: "y" },
+        { type: "bar", label: "Sem justificativa (R$)", data: semanas.map((w) => +porSem[w].semJust.toFixed(2)), backgroundColor: COR.casco, yAxisID: "y", stack: "d" },
+        { type: "bar", label: "Justificado: perdas (R$)", data: semanas.map((w) => +porSem[w].just.toFixed(2)), backgroundColor: COR.ambar, yAxisID: "y", stack: "d" },
         { type: "line", label: "Índice (%)", data: semanas.map((w) => porSem[w].consumo > 0 ? +(porSem[w].desvio / porSem[w].consumo * 100).toFixed(2) : null), borderColor: COR.mare, backgroundColor: COR.mare, yAxisID: "y1", tension: 0.2 },
         { type: "line", label: "Meta (%)", data: semanas.map(() => meta), borderColor: COR.cinza, borderDash: [6, 4], pointRadius: 0, yAxisID: "y1" },
       ],
     },
-    options: { scales: { y: { ...eixoR, position: "left" }, y1: { ...eixoPct, position: "right", grid: { drawOnChartArea: false }, beginAtZero: true } } },
+    options: { scales: { x: { stacked: true }, y: { ...eixoR, position: "left", stacked: true }, y1: { ...eixoPct, position: "right", grid: { drawOnChartArea: false }, beginAtZero: true } } },
   });
 
   // ---- Pareto
   const porProd = {};
-  desv.forEach((x) => { const r = (porProd[x.produto_id] ??= { nome: x.nome, unidade: x.unidade, qtd: 0, desvio: 0, consumo: 0 }); r.qtd += Number(x.desvio); r.desvio += Number(x.desvio_valor) || 0; });
-  saidas.forEach((x) => { const r = (porProd[x.produto_id] ??= { nome: x.nome, unidade: x.unidade, qtd: 0, desvio: 0, consumo: 0 }); r.consumo += Number(x.valor) || 0; });
+  desv.forEach((x) => { const r = (porProd[x.produto_id] ??= { nome: x.nome, unidade: x.unidade, qtd: 0, desvio: 0, consumo: 0 }); r.qtd += Number(x.desvio_total); r.desvio += Number(x.desvio_total_valor) || 0; });
+  saidas.forEach((x) => { if (x.tipo_saida_id === TIPO_PERDA) return; const r = (porProd[x.produto_id] ??= { nome: x.nome, unidade: x.unidade, qtd: 0, desvio: 0, consumo: 0 }); r.consumo += Number(x.valor) || 0; });
   const pareto = Object.values(porProd).filter((r) => r.desvio > 0).sort((a, b) => b.desvio - a.desvio);
   const totPar = pareto.reduce((s, r) => s + r.desvio, 0);
   let acum = 0;
@@ -977,7 +1113,7 @@ async function carregarIndicadores() {
 
   // ---- Dia da semana
   const porDia = [0, 0, 0, 0, 0, 0, 0];
-  desv.forEach((x) => (porDia[diaSemana(x.dia)] += Number(x.desvio_valor) || 0));
+  desv.forEach((x) => (porDia[diaSemana(x.dia)] += Number(x.desvio_total_valor) || 0));
   grafico("g-semana", {
     type: "bar",
     data: { labels: DIAS_SEG.map((d) => DIAS[d]), datasets: [{ label: "Desvio (R$)", data: DIAS_SEG.map((d) => +porDia[d].toFixed(2)), backgroundColor: DIAS_SEG.map((d) => porDia[d] > 0 ? COR.casco : COR.ok) }] },
@@ -987,12 +1123,12 @@ async function carregarIndicadores() {
   // ---- Perdas × causas
   const causas = {};
   trat.forEach((t) => { const k = t.status === "CONCLUIDO" ? t.causa : "Ainda não tratado"; causas[k] = (causas[k] || 0) + (Number(t.desvio_valor) || 0); });
-  const labCausas = ["Perdas registradas", ...E.causas.map((c) => c.nome).filter((n) => n in causas), ...("Ainda não tratado" in causas ? ["Ainda não tratado"] : [])];
+  const labCausas = ["Justificado: perdas", ...E.causas.map((c) => c.nome).filter((n) => n in causas), ...("Ainda não tratado" in causas ? ["Ainda não tratado"] : [])];
   const semExp = new Set(E.causas.filter((c) => !c.explica).map((c) => c.nome));
   grafico("g-causas", {
     type: "bar",
-    data: { labels: labCausas, datasets: [{ label: "R$", data: labCausas.map((l) => +(l === "Perdas registradas" ? perdasR : causas[l]).toFixed(2)),
-      backgroundColor: labCausas.map((l) => l === "Perdas registradas" ? COR.ambar : semExp.has(l) ? COR.casco : l === "Ainda não tratado" ? COR.cinza : COR.mare) }] },
+    data: { labels: labCausas, datasets: [{ label: "R$", data: labCausas.map((l) => +(l === "Justificado: perdas" ? perdasR : causas[l]).toFixed(2)),
+      backgroundColor: labCausas.map((l) => l === "Justificado: perdas" ? COR.ambar : semExp.has(l) ? COR.casco : l === "Ainda não tratado" ? COR.cinza : COR.mare) }] },
     options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: eixoR } },
   });
 
@@ -1397,62 +1533,76 @@ async function carregarDesvios() {
   const de = $("#dev-de").value, ate = $("#dev-ate").value, local = $("#dev-local").value;
   const filtrar = (x) => { x = x.gte("dia", de).lte("dia", ate); if (local) x = x.eq("local", local); if ($("#dev-criticos").checked) x = x.eq("critico", true); return x; };
   const [d, tr] = await Promise.all([
-    tudo(() => { let x = filtrar(sb.from("v_desvios").select("*")).order("data_hora", { ascending: false }); if ($("#dev-fora").checked) x = x.eq("fora_tolerancia", true); return x; }),
+    tudo(() => { let x = filtrar(sb.from("v_desvios_justificativa").select("*")).order("data_hora", { ascending: false }); if ($("#dev-fora").checked) x = x.eq("fora_tolerancia", true); return x; }),
     tudo(() => filtrar(sb.from("v_tratativas").select("*"))),
   ]);
   const trMap = Object.fromEntries(tr.map((t) => [t.item_id, t]));
   E.desviosAtuais = d; E.tratMap = trMap;
 
-  const falta = d.reduce((s, x) => s + Math.max(Number(x.desvio_valor) || 0, 0), 0);
-  const sobra = d.reduce((s, x) => s + Math.min(Number(x.desvio_valor) || 0, 0), 0);
+  const soma = (k) => d.reduce((s, x) => s + (Number(x[k]) || 0), 0);
+  const total = soma("desvio_total_valor"), just = soma("justificado_valor"), semJust = soma("desvio_valor");
+  const sobra = d.reduce((s, x) => s + Math.min(Number(x.desvio_total_valor) || 0, 0), 0);
   const fora = d.filter((x) => x.fora_tolerancia).length;
   $("#dev-ind").innerHTML = `
-    <div class="indicador"><span>Falta acumulada</span><strong class="${falta > 0 ? "neg" : ""}">${fmtR(falta)}</strong></div>
+    <div class="indicador"><span>Desvio total</span><strong class="${total > 0 ? "neg" : ""}">${fmtR(total)}</strong><small>Falta menos sobra</small></div>
+    <div class="indicador"><span>Justificado (perdas)</span><strong>${fmtR(just)}</strong><small>${total > 0 ? fmtPct(just / total * 100) + " do desvio total" : "Perdas confirmadas"}</small></div>
+    <div class="indicador"><span>Sem justificativa</span><strong class="${semJust > 0 ? "neg" : ""}">${fmtR(semJust)}</strong><small>Ninguém explicou</small></div>
     <div class="indicador"><span>Sobra acumulada</span><strong>${fmtR(Math.abs(sobra))}</strong></div>
-    <div class="indicador"><span>Desvio líquido</span><strong class="${falta + sobra > 0 ? "neg" : ""}">${fmtR(falta + sobra)}</strong></div>
-    <div class="indicador"><span>Fora da tolerância</span><strong>${fora} de ${d.length}</strong></div>`;
+    <div class="indicador"><span>Fora da tolerância</span><strong>${fora} de ${d.length}</strong><small>Calculado sobre o sem justificativa</small></div>`;
 
   const rank = {};
   d.forEach((x) => {
-    const r = (rank[x.produto_id] ??= { id: x.produto_id, nome: x.nome, unidade: x.unidade, n: 0, fora: 0, pend: 0, qtd: 0, valor: 0, itens: [] });
-    r.n++; r.qtd += Number(x.desvio); r.valor += Number(x.desvio_valor) || 0; r.itens.push(x);
+    const r = (rank[x.produto_id] ??= { id: x.produto_id, nome: x.nome, unidade: x.unidade, n: 0, fora: 0, pend: 0, qtd: 0, just: 0, semJust: 0, valor: 0, valorSem: 0, itens: [] });
+    r.n++; r.qtd += Number(x.desvio_total); r.just += Number(x.desvio_justificado); r.semJust += Number(x.desvio);
+    r.valor += Number(x.desvio_total_valor) || 0; r.valorSem += Number(x.desvio_valor) || 0; r.itens.push(x);
     if (x.fora_tolerancia) r.fora++;
     const t = trMap[x.item_id]; if (t && t.status !== "CONCLUIDO") r.pend++;
   });
   const ranking = Object.values(rank).sort((a, b) => b.valor - a.valor || b.qtd - a.qtd);
   E.devAbertos ??= new Set();
   const detalhe = (itens) => `<div class="sub-tabela"><table>
-    <thead><tr><th>Contagem</th><th>Local</th><th class="num">Anterior</th><th class="num">Entrou</th><th class="num">Saiu</th><th class="num">Esperado</th><th class="num">Contado</th><th class="num">Desvio</th><th class="num">R$</th><th>Tratativa</th><th>Justificativa</th></tr></thead>
+    <thead><tr><th>Contagem</th><th>Local</th><th class="num">Anterior</th><th class="num">Entrou</th><th class="num">Saiu</th><th class="num">Esperado</th><th class="num">Contado</th><th class="num">Desvio total</th><th class="num">Justificado (perdas)</th><th class="num">Sem justificativa</th><th class="num">R$ total</th><th>Tratativa</th><th>Justificativa</th></tr></thead>
     <tbody>${itens.map((x) => { const t = trMap[x.item_id]; return `<tr>
       <td>${fmtDataHora(x.data_hora)}<br><small class="dica">desde ${fmtDataHora(x.data_anterior)}</small></td>
       <td>${NOME_LOCAL[x.local]}</td>
       <td class="num">${fmtQtd(x.qtd_anterior)}</td><td class="num">${fmtQtd(x.entradas_periodo)}</td><td class="num">${fmtQtd(x.saidas_periodo)}</td>
       <td class="num">${fmtQtd(x.esperado)}</td>
       <td class="num">${fmtQtd(x.contado)}${x.quantidade_primeira != null ? `<br><small class="dica">recontado (1ª: ${fmtQtd(x.quantidade_primeira)})</small>` : ""}</td>
-      <td class="num ${clsNum(x.desvio)}">${fmtQtd(x.desvio)}</td><td class="num">${fmtR(x.desvio_valor)}</td>
+      <td class="num ${clsNum(x.desvio_total)}">${fmtQtd(x.desvio_total)}</td>
+      <td class="num">${Number(x.desvio_justificado) ? `<span class="selo just">${fmtQtd(x.desvio_justificado)}</span>${x.pracas ? `<br><small class="dica">${esc(x.pracas)}</small>` : ""}` : ""}${Number(x.perda_pendente) ? `<br><small class="dica">${fmtQtd(x.perda_pendente)} aguardando confirmação</small>` : ""}</td>
+      <td class="num ${clsNum(x.desvio)}">${fmtQtd(x.desvio)}</td>
+      <td class="num">${fmtR(x.desvio_total_valor)}</td>
       <td>${t ? `${seloStatus(t.status)} <button class="btn sec peq" data-tratar="${x.item_id}">Tratar</button>` : `<span class="dica">Dentro da tolerância</span>`}</td>
       <td>${esc(x.justificativa)}${Number(x.desvio) !== 0 ? ` <button class="btn sec peq" data-just="${x.item_id}" data-atual="${esc(x.justificativa)}">${x.justificativa ? "Editar" : "Justificar"}</button>` : ""}</td></tr>`; }).join("")}</tbody></table></div>`;
   $("#dev-rank").innerHTML = ranking.length ? ranking.map((r) => { const ab = E.devAbertos.has(r.id); return `
     <tr class="linha-prod ${ab ? "aberta" : ""}">
       <td>${esc(r.nome)}${r.pend ? ` <span class="selo ruim">${r.pend} pendente${r.pend > 1 ? "s" : ""}</span>` : ""}</td>
       <td class="num">${r.n}</td><td class="num">${r.fora}</td>
-      <td class="num ${clsNum(r.qtd)}">${fmtQtd(r.qtd)} ${esc(r.unidade)}</td><td class="num ${clsNum(r.valor)}">${fmtR(r.valor)}</td>
+      <td class="num ${clsNum(r.qtd)}">${fmtQtd(r.qtd)} ${esc(r.unidade)}</td>
+      <td class="num">${r.just ? `<span class="selo just">${fmtQtd(r.just)}</span>` : "0"}</td>
+      <td class="num ${clsNum(r.semJust)}">${fmtQtd(r.semJust)}</td>
+      <td class="num ${clsNum(r.valor)}">${fmtR(r.valor)}</td><td class="num ${clsNum(r.valorSem)}">${fmtR(r.valorSem)}</td>
       <td class="num"><button class="btn sec peq" data-det="${r.id}" aria-expanded="${ab}">${ab ? "Ocultar detalhes" : "Exibir detalhes"}</button></td>
     </tr>
-    <tr class="detalhe ${ab ? "" : "oculto"}" data-det-linha="${r.id}"><td colspan="6">${detalhe(r.itens)}</td></tr>`; }).join("")
-    : `<tr><td colspan="6" class="vazio">Nenhum desvio no período. Desvios aparecem a partir da segunda contagem de cada produto.</td></tr>`;
+    <tr class="detalhe ${ab ? "" : "oculto"}" data-det-linha="${r.id}"><td colspan="9">${detalhe(r.itens)}</td></tr>`; }).join("")
+    : `<tr><td colspan="9" class="vazio">Nenhum desvio no período. Desvios aparecem a partir da segunda contagem de cada produto.</td></tr>`;
 
   E.exp.desvios = {
     titulo: "Desvios", arquivo: "desvios", subtitulo: `${fmtData(de)} a ${fmtData(ate)} | ${local ? NOME_LOCAL[local] : "Ambos os locais"}`,
     colunas: [
       { k: "data", rotulo: "Contagem" }, { k: "nome", rotulo: "Produto" }, { k: "local", rotulo: "Local" },
       { k: "qtd_anterior", rotulo: "Anterior", num: true }, { k: "entradas_periodo", rotulo: "Entrou", num: true }, { k: "saidas_periodo", rotulo: "Saiu", num: true },
-      { k: "esperado", rotulo: "Esperado", num: true }, { k: "contado", rotulo: "Contado", num: true }, { k: "desvio", rotulo: "Desvio", num: true },
-      { k: "desvio_valor", rotulo: "Desvio R$", num: true, fmt: (v) => v === "" || v == null ? "" : fmtR(v) }, { k: "status", rotulo: "Tratativa" }, { k: "justificativa", rotulo: "Justificativa" },
+      { k: "esperado", rotulo: "Esperado", num: true }, { k: "contado", rotulo: "Contado", num: true },
+      { k: "desvio_total", rotulo: "Desvio total", num: true }, { k: "desvio_justificado", rotulo: "Justificado (perdas)", num: true }, { k: "pracas", rotulo: "Praças" },
+      { k: "desvio", rotulo: "Sem justificativa", num: true },
+      { k: "desvio_total_valor", rotulo: "Desvio total R$", num: true, fmt: (v) => v === "" || v == null ? "" : fmtR(v) },
+      { k: "desvio_valor", rotulo: "Sem justificativa R$", num: true, fmt: (v) => v === "" || v == null ? "" : fmtR(v) }, { k: "status", rotulo: "Tratativa" }, { k: "justificativa", rotulo: "Justificativa" },
     ],
     linhas: d.map((x) => ({ ...x, data: fmtDataHora(x.data_hora), local: NOME_LOCAL[x.local],
       qtd_anterior: Number(x.qtd_anterior), entradas_periodo: Number(x.entradas_periodo), saidas_periodo: Number(x.saidas_periodo),
       esperado: Number(x.esperado), contado: Number(x.contado), desvio: Number(x.desvio), desvio_valor: x.desvio_valor == null ? "" : Number(x.desvio_valor),
+      desvio_total: Number(x.desvio_total), desvio_justificado: Number(x.desvio_justificado), pracas: x.pracas || "",
+      desvio_total_valor: x.desvio_total_valor == null ? "" : Number(x.desvio_total_valor),
       status: trMap[x.item_id] ? NOME_STATUS[trMap[x.item_id].status] : "Dentro da tolerância" })),
   };
 }
@@ -1680,8 +1830,9 @@ carregadores.cadastros = () => abrirSub($("#cad-nav [aria-selected='true']").dat
 $("#cad-nav").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-sub]"); if (b) abrirSub(b.dataset.sub); });
 function abrirSub(sub) {
   $$("#cad-nav button").forEach((b) => b.setAttribute("aria-selected", b.dataset.sub === sub));
-  ["produtos", "precos", "ideal", "tipos", "justs", "causas", "parametros", "usuarios"].forEach((s) => $("#cad-" + s).classList.toggle("oculto", s !== sub));
-  ({ produtos: renderCadProdutos, precos: carregarPrecos, ideal: carregarIdeal, tipos: renderTipos, justs: renderJusts, causas: renderCausas, parametros: renderParametros, usuarios: carregarUsuarios })[sub]();
+  ["produtos", "precos", "ideal", "tipos", "justs", "causas", "pracas", "sccats", "parametros", "usuarios"].forEach((s) => $("#cad-" + s).classList.toggle("oculto", s !== sub));
+  ({ produtos: renderCadProdutos, precos: carregarPrecos, ideal: carregarIdeal, tipos: renderTipos, justs: renderJusts, causas: renderCausas,
+    pracas: renderPracas, sccats: renderScCats, parametros: renderParametros, usuarios: carregarUsuarios })[sub]();
 }
 
 // --- Produtos
@@ -1849,6 +2000,16 @@ async function addSimples(input, tabela, render) {
   $(input).value = ""; await carregarCadastros(); render(); toast("Adicionado.");
 }
 $("#tipo-add").addEventListener("click", () => addSimples("#tipo-novo", "tipos_saida", renderTipos));
+const renderPracas = () => renderListaSimples("#praca-lista", E.pracas, "pracas");
+const renderScCats = () => renderListaSimples("#sccat-lista", E.scCats, "scorecard_categorias");
+$("#praca-add").addEventListener("click", () => addSimples("#praca-novo", "pracas", renderPracas));
+$("#sccat-add").addEventListener("click", () => addSimples("#sccat-novo", "scorecard_categorias", renderScCats));
+["#praca-lista", "#sccat-lista"].forEach((sel) => $(sel).addEventListener("change", async (ev) => {
+  const i = ev.target;
+  const { error } = await sb.from(i.dataset.tab).update({ ativo: i.checked }).eq("id", i.dataset.id);
+  if (error) return toast(msgErro(error));
+  await carregarCadastros(); (sel === "#praca-lista" ? renderPracas : renderScCats)(); toast(i.checked ? "Ativado." : "Desativado.");
+}));
 $("#just-add").addEventListener("click", () => addSimples("#just-novo", "justificativas_extra", renderJusts));
 
 // --- Usuários
@@ -1868,7 +2029,7 @@ async function carregarUsuarios() {
   $("#usu-lista").innerHTML = lista.map((u) => {
     const eu = u.id === E.perfil.id;
     return `<tr data-uid="${u.id}"><td>${esc(u.nome)}${eu ? ` <span class="selo neutro">você</span>` : ""}</td><td>${esc(u.email)}</td>
-      <td><select data-usu="papel" ${eu ? "disabled" : ""}><option value="ESTOQUISTA" ${u.papel === "ESTOQUISTA" ? "selected" : ""}>Estoquista</option><option value="GESTOR" ${u.papel === "GESTOR" ? "selected" : ""}>Gestão</option></select></td>
+      <td><select data-usu="papel" ${eu ? "disabled" : ""}>${Object.entries(NOME_PAPEL).map(([k, v]) => `<option value="${k}" ${u.papel === k ? "selected" : ""}>${v}</option>`).join("")}</select></td>
       <td><input type="checkbox" data-usu="ativo" style="width:auto" ${u.ativo ? "checked" : ""} ${eu ? "disabled" : ""}></td>
       <td><button class="btn sec peq" data-usu-senha="${u.id}" data-nome="${esc(u.nome)}">Trocar senha</button></td></tr>`;
   }).join("");
@@ -1901,6 +2062,356 @@ $("#usu-criar").addEventListener("click", async () => {
     carregarUsuarios();
   } catch (e) { toast(e.message); }
   finally { btn.disabled = false; }
+});
+
+// ============================================================
+// PERDAS (chefes registram, gestão confirma)
+// ============================================================
+carregadores.perdas = () => {
+  if (!isGestor()) abrirPerSub("registrar");
+  else abrirPerSub($("#per-nav [aria-selected='true']").dataset.psub);
+};
+$("#per-nav").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-psub]"); if (b) abrirPerSub(b.dataset.psub); });
+function abrirPerSub(sub) {
+  if (sub === "confirmar" && !isGestor()) sub = "registrar";
+  $$("#per-nav button").forEach((b) => b.setAttribute("aria-selected", b.dataset.psub === sub));
+  $("#per-registrar").classList.toggle("oculto", sub !== "registrar");
+  $("#per-confirmar").classList.toggle("oculto", sub !== "confirmar");
+  if (sub === "registrar") { $("#per-data").value = agoraInput(); carregarMinhasPerdas(); } else carregarConfirmacao();
+}
+function atualizarBadgePerdas(n) {
+  const html = n ? `<span class="selo ruim">${n}</span>` : "";
+  $("#per-badge").innerHTML = html; $("#nav-perdas-badge").innerHTML = isGestor() ? html : "";
+}
+const seloPerda = (st) => `<span class="selo ${CLS_ST_PERDA[st]}">${NOME_ST_PERDA[st]}</span>`;
+
+$("#per-produto").addEventListener("change", () => {
+  const p = E.produtos.find((x) => x.id === $("#per-produto").value);
+  $("#per-un").textContent = p ? `Unidade: ${p.unidade}${p.gramatura_g ? ` (${fmtQtd(p.gramatura_g)} g)` : ""}` : "";
+});
+
+$("#per-salvar").addEventListener("click", async () => {
+  const erro = (m) => ($("#per-erro").textContent = m);
+  erro("");
+  const produto_id = $("#per-produto").value, praca_id = Number($("#per-praca").value);
+  const quantidade = Number($("#per-qtd").value), motivo = $("#per-motivo").value.trim();
+  if (!produto_id) return erro("Escolha o produto.");
+  if (!praca_id) return erro("Escolha a praça.");
+  if (!(quantidade > 0)) return erro("Informe a quantidade perdida.");
+  if (!motivo) return erro("Informe o motivo da perda.");
+  const data_hora = inputParaISO($("#per-data").value);
+  if (new Date(data_hora) > new Date(Date.now() + 5 * 60e3)) return erro("A data e hora não pode estar no futuro.");
+  const p = E.produtos.find((x) => x.id === produto_id);
+  if (!confirm(`Registrar perda de ${fmtQtd(quantidade)} ${p?.unidade || ""} de ${p?.nome}?`)) return;
+  const btn = $("#per-salvar"); btn.disabled = true;
+  const { error } = await sb.from("perdas").insert({ produto_id, praca_id, quantidade, motivo, data_hora, observacao: $("#per-obs").value.trim() || null, registrado_por: E.perfil.id });
+  btn.disabled = false;
+  if (error) return erro(msgErro(error));
+  toast("Perda registrada. Ela aguarda a confirmação da gestão.");
+  $("#per-produto").value = ""; $("#per-un").textContent = ""; $("#per-qtd").value = ""; $("#per-motivo").value = ""; $("#per-obs").value = "";
+  $("#per-data").value = agoraInput();
+  carregarMinhasPerdas();
+});
+
+async function carregarMinhasPerdas() {
+  $("#per-lista-titulo").textContent = isGestor() ? "Registros recentes" : "Meus registros";
+  let qr = sb.from("v_perdas").select("*").order("data_hora", { ascending: false }).limit(40);
+  if (!isGestor()) qr = qr.eq("registrado_por", E.perfil.id);
+  const lista = await q(qr);
+  E.perdasLista = Object.fromEntries(lista.map((x) => [x.id, x]));
+  $("#per-lista").innerHTML = lista.length ? lista.map((x) => `<tr>
+    <td>${fmtDataHora(x.data_hora)}</td><td>${esc(x.produto)}</td><td>${esc(x.praca)}</td>
+    <td class="num">${fmtQtd(x.quantidade)} ${esc(x.unidade)}</td>
+    <td>${esc(x.motivo)}${x.observacao ? `<br><small class="dica">${esc(x.observacao)}</small>` : ""}</td>
+    <td>${esc(x.registrado_por_nome)}</td>
+    <td>${seloPerda(x.status)}${x.status === "RECUSADA" && x.motivo_recusa ? `<br><small class="dica">${esc(x.motivo_recusa)}</small>` : ""}</td>
+    <td>${x.status === "PENDENTE" && (x.registrado_por === E.perfil.id || isGestor()) ? `<button class="btn perigo peq" data-per-cancelar="${x.id}">Cancelar</button>` : ""}</td></tr>`).join("")
+    : `<tr><td colspan="8" class="vazio">Nenhuma perda registrada ainda.</td></tr>`;
+}
+$("#per-lista").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-per-cancelar]"); if (!b) return;
+  if (!confirm("Cancelar este registro de perda? Use quando foi lançado errado.")) return;
+  const { error } = await sb.rpc("cancelar_perda", { p_id: b.dataset.perCancelar });
+  if (error) return toast(msgErro(error));
+  toast("Registro cancelado."); carregarMinhasPerdas();
+});
+
+["#pc-status", "#pc-de", "#pc-ate", "#pc-praca"].forEach((s) => $(s).addEventListener("change", carregarConfirmacao));
+
+async function carregarConfirmacao() {
+  const st = $("#pc-status").value, de = $("#pc-de").value, ate = $("#pc-ate").value, praca = $("#pc-praca").value;
+  const [lista, pend] = await Promise.all([
+    tudo(() => { let x = sb.from("v_perdas").select("*").order("data_hora", { ascending: st === "PENDENTE" });
+      if (st !== "PENDENTE") x = x.gte("dia", de).lte("dia", ate);
+      if (st) x = x.eq("status", st);
+      if (praca) x = x.eq("praca_id", Number(praca));
+      return x; }),
+    sb.from("perdas").select("id", { count: "exact", head: true }).eq("status", "PENDENTE"),
+  ]);
+  atualizarBadgePerdas(pend.count || 0);
+  E.pcLista = lista;
+  const somaR = (arr) => arr.reduce((s, x) => s + (Number(x.valor) || 0), 0);
+  const pendentes = lista.filter((x) => x.status === "PENDENTE"), confirmadas = lista.filter((x) => x.status === "CONFIRMADA");
+  const porPraca = {};
+  confirmadas.forEach((x) => (porPraca[x.praca] = (porPraca[x.praca] || 0) + (Number(x.valor) || 0)));
+  const topPraca = Object.entries(porPraca).sort((a, b) => b[1] - a[1])[0];
+  $("#pc-ind").innerHTML = `
+    <div class="indicador ${pend.count ? "ruim" : "bom"}"><span>Aguardando confirmação</span><strong>${pend.count || 0}</strong><small>${st === "PENDENTE" ? fmtR(somaR(pendentes)) : "em todo o período"}</small></div>
+    ${st !== "PENDENTE" ? `<div class="indicador"><span>Desvio justificado no filtro</span><strong>${fmtR(somaR(confirmadas))}</strong><small>${confirmadas.length} perdas confirmadas</small></div>
+    <div class="indicador"><span>Praça com mais perda</span><strong style="font-size:20px">${topPraca ? esc(topPraca[0]) : "-"}</strong><small>${topPraca ? fmtR(topPraca[1]) : ""}</small></div>` : ""}`;
+  $("#pc-lista").innerHTML = lista.length ? lista.map((x) => {
+    const acoes = x.status === "PENDENTE"
+      ? `<button class="btn peq" data-pc="confirmar" data-id="${x.id}">Confirmar</button><button class="btn perigo peq" data-pc="recusar" data-id="${x.id}">Recusar</button>`
+      : (x.status === "CONFIRMADA" || x.status === "RECUSADA") ? `<button class="btn sec peq" data-pc="reabrir" data-id="${x.id}">Reabrir</button>` : "";
+    return `<tr><td>${fmtDataHora(x.data_hora)}</td><td>${esc(x.produto)}</td><td>${esc(x.praca)}</td>
+      <td class="num">${fmtQtd(x.quantidade)} ${esc(x.unidade)}</td><td class="num">${fmtR(x.valor)}</td>
+      <td>${esc(x.motivo)}${x.observacao ? `<br><small class="dica">${esc(x.observacao)}</small>` : ""}</td>
+      <td>${esc(x.registrado_por_nome)}<br><small class="dica">${fmtDataHora(x.registrado_em)}</small></td>
+      <td>${seloPerda(x.status)}${x.analisado_por_nome ? `<br><small class="dica">${esc(x.analisado_por_nome)}, ${fmtDataHora(x.analisado_em)}</small>` : ""}${x.motivo_recusa ? `<br><small class="dica">${esc(x.motivo_recusa)}</small>` : ""}</td>
+      <td><div class="acoes">${acoes}</div></td></tr>`;
+  }).join("") : `<tr><td colspan="9" class="vazio">${st === "PENDENTE" ? "Nenhuma perda aguardando confirmação." : "Nada neste filtro."}</td></tr>`;
+  $("#pc-barra").classList.toggle("oculto", !pendentes.length);
+  $("#pc-resumo").textContent = pendentes.length ? `${pendentes.length} pendentes listadas, ${fmtR(somaR(pendentes))}` : "";
+  E.exp.perdas = { titulo: "Perdas registradas", arquivo: "perdas", subtitulo: st === "PENDENTE" ? "Aguardando confirmação" : `${fmtData(de)} a ${fmtData(ate)} | ${st ? NOME_ST_PERDA[st] : "Todas"}`,
+    colunas: [{ k: "data", rotulo: "Data e hora" }, { k: "produto", rotulo: "Produto" }, { k: "categoria", rotulo: "Categoria" }, { k: "praca", rotulo: "Praça" },
+      { k: "quantidade", rotulo: "Qtd", num: true }, { k: "unidade", rotulo: "Un." }, { k: "valor", rotulo: "R$", num: true, fmt: (v) => v === "" ? "" : fmtR(v) },
+      { k: "motivo", rotulo: "Motivo" }, { k: "registrado_por_nome", rotulo: "Registrado por" }, { k: "situacao", rotulo: "Situação" }],
+    linhas: lista.map((x) => ({ ...x, data: fmtDataHora(x.data_hora), quantidade: Number(x.quantidade), valor: x.valor == null ? "" : Number(x.valor), situacao: NOME_ST_PERDA[x.status] })) };
+}
+
+$("#pc-lista").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-pc]"); if (!b) return;
+  const x = E.pcLista.find((p) => p.id === b.dataset.id); if (!x) return;
+  const desc = `${fmtQtd(x.quantidade)} ${x.unidade} de ${x.produto} (${x.praca})`;
+  let r;
+  if (b.dataset.pc === "confirmar") {
+    if (!confirm(`Confirmar a perda de ${desc}?\n\nO produto sai da câmara da cozinha como "Perda (desvio justificado)". O desvio continua contando, agora justificado.`)) return;
+    r = await sb.rpc("confirmar_perda", { p_id: x.id });
+  } else if (b.dataset.pc === "recusar") {
+    const motivo = prompt(`Recusar a perda de ${desc}?\n\nMotivo da recusa:`);
+    if (motivo === null) return;
+    if (!motivo.trim()) return toast("Informe o motivo da recusa.");
+    r = await sb.rpc("recusar_perda", { p_id: x.id, p_motivo: motivo.trim() });
+  } else {
+    if (!confirm(`Reabrir a perda de ${desc}?\n\nEla volta para "aguardando confirmação"${x.status === "CONFIRMADA" ? " e a saída gerada é excluída" : ""}.`)) return;
+    r = await sb.rpc("reabrir_perda", { p_id: x.id });
+  }
+  if (r.error) return toast(msgErro(r.error));
+  toast(b.dataset.pc === "confirmar" ? "Perda confirmada: desvio justificado." : b.dataset.pc === "recusar" ? "Perda recusada." : "Perda reaberta.");
+  carregarConfirmacao();
+});
+
+$("#pc-confirmar-todas").addEventListener("click", async () => {
+  const pend = (E.pcLista || []).filter((x) => x.status === "PENDENTE");
+  if (!pend.length) return;
+  if (!confirm(`Confirmar ${pend.length} perdas pendentes listadas? Todas saem da câmara da cozinha como desvio justificado.`)) return;
+  const btn = $("#pc-confirmar-todas"); btn.disabled = true;
+  let ok = 0;
+  for (const x of pend) { const { error } = await sb.rpc("confirmar_perda", { p_id: x.id }); if (error) { toast(msgErro(error)); break; } ok++; }
+  btn.disabled = false;
+  toast(`${ok} perdas confirmadas.`); carregarConfirmacao();
+});
+
+// ============================================================
+// CMV DE PROTEÍNAS (scorecard semanal)
+// ============================================================
+carregadores.scorecard = carregarScorecard;
+
+// Semana ISO (segunda a domingo), a mesma numeração usada no Ilha
+function semanaISO(ymd) {
+  const d = new Date(ymd + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) + 3);
+  const ano = d.getUTCFullYear(), jan4 = new Date(Date.UTC(ano, 0, 4));
+  return { ano, semana: 1 + Math.round(((d - jan4) / 864e5 - 3 + ((jan4.getUTCDay() + 6) % 7)) / 7) };
+}
+const rotuloSemana = (ini) => `Semana ${semanaISO(ini).semana} (${fmtData(ini).slice(0, 5)} a ${fmtData(addDias(ini, 6)).slice(0, 5)})`;
+const scNum = (v) => (v === "" || v == null ? null : Number(v));
+
+async function carregarScorecard() {
+  const [sem, itens] = await Promise.all([
+    q(sb.from("v_scorecard_semanal").select("*").order("semana_inicio", { ascending: false })),
+    tudo(() => sb.from("v_scorecard_categorias").select("*")),
+  ]);
+  E.scSemanas = sem; E.scItens = {};
+  itens.forEach((i) => (E.scItens[i.scorecard_id] ??= []).push(i));
+
+  // Opções de semana: a atual e as 26 anteriores
+  const atual = segunda(hojeSP()), feitas = new Set(sem.map((s) => s.semana_inicio));
+  const sel = $("#sc-semana"), antes = sel.value;
+  let ops = "";
+  for (let i = 0; i <= 26; i++) {
+    const ini = addDias(atual, -7 * i);
+    ops += `<option value="${ini}">${rotuloSemana(ini)}${i === 0 ? " · em andamento" : ""}${feitas.has(ini) ? " · lançada" : ""}</option>`;
+  }
+  sel.innerHTML = ops;
+  sel.value = antes && [...sel.options].some((o) => o.value === antes) ? antes : addDias(atual, -7);
+  montarFormScorecard();
+  renderScorecard();
+}
+
+function montarFormScorecard() {
+  const ini = $("#sc-semana").value;
+  const s = (E.scSemanas || []).find((x) => x.semana_inicio === ini);
+  const itens = s ? E.scItens[s.id] || [] : [];
+  const porCat = Object.fromEntries(itens.map((i) => [i.categoria_id, i]));
+  const ultimaMeta = (E.scSemanas || [])[0]?.meta_pct;
+  $("#sc-fat").value = s ? Number(s.faturamento) : "";
+  $("#sc-meta").value = s ? Number(s.meta_pct) : ultimaMeta != null ? Number(ultimaMeta) : "";
+  $("#sc-obs").value = s?.observacao || "";
+  const cats = E.scCats.filter((c) => c.ativo || porCat[c.id]);
+  $("#sc-grid").innerHTML = cats.map((c) => { const i = porCat[c.id]; return `<tr data-cat="${c.id}" data-salvo="${i ? 1 : ""}">
+    <td>${esc(c.nome)}</td>
+    <td class="num"><input class="mini" type="number" inputmode="decimal" min="0" step="0.01" data-k="teo" value="${i ? Number(i.cmv_teorico) : ""}" aria-label="CMV teórico ${esc(c.nome)}"></td>
+    <td class="num"><input class="mini" type="number" inputmode="decimal" min="0" step="0.01" data-k="real" value="${i ? Number(i.cmv_real) : ""}" aria-label="CMV real ${esc(c.nome)}"></td>
+    <td class="num" data-o="pteo"></td><td class="num" data-o="preal"></td><td class="num" data-o="dif"></td></tr>`; }).join("")
+    || `<tr><td colspan="6" class="vazio">Nenhuma categoria ativa. Cadastre em Cadastros → Categorias do CMV.</td></tr>`;
+  const emAndamento = ini === segunda(hojeSP());
+  $("#sc-aviso-semana").textContent = s
+    ? `Esta semana já foi lançada. Altere os valores e salve para atualizar.`
+    : emAndamento ? "Semana em andamento: os números ainda são parciais. O ideal é lançar depois do fechamento, no domingo." : "Semana ainda não lançada.";
+  recalcularScorecard();
+}
+$("#sc-semana").addEventListener("change", montarFormScorecard);
+["#sc-fat", "#sc-meta"].forEach((s) => $(s).addEventListener("input", recalcularScorecard));
+$("#sc-grid").addEventListener("input", recalcularScorecard);
+$("#sc-limpar").addEventListener("click", () => { $$("#sc-grid input").forEach((i) => (i.value = "")); $("#sc-fat").value = ""; $("#sc-obs").value = ""; recalcularScorecard(); });
+
+function recalcularScorecard() {
+  const fat = scNum($("#sc-fat").value), meta = scNum($("#sc-meta").value);
+  const pct = (v) => (fat > 0 && v != null ? v / fat * 100 : null);
+  let tTeo = 0, tReal = 0, n = 0;
+  $$("#sc-grid tr[data-cat]").forEach((tr) => {
+    const teo = scNum(tr.querySelector('[data-k="teo"]').value), real = scNum(tr.querySelector('[data-k="real"]').value);
+    tr.querySelector('[data-o="pteo"]').textContent = fmtPct(pct(teo));
+    tr.querySelector('[data-o="preal"]').textContent = fmtPct(pct(real));
+    const dif = tr.querySelector('[data-o="dif"]');
+    dif.textContent = teo != null && real != null ? fmtR(real - teo) : "";
+    dif.className = "num " + (teo != null && real != null ? clsNum(real - teo) : "");
+    if (teo != null && real != null) { tTeo += teo; tReal += real; n++; }
+  });
+  const total = $$("#sc-grid tr[data-cat]").length;
+  const pReal = pct(tReal), bateu = pReal != null && meta != null ? +pReal.toFixed(2) <= meta : null;
+  $("#sc-total").innerHTML = total ? `<tr><td>CMV de proteínas (${n} de ${total})</td><td class="num">${fmtR(tTeo)}</td><td class="num">${fmtR(tReal)}</td>
+    <td class="num">${fmtPct(pct(tTeo))}</td><td class="num">${fmtPct(pReal)}</td><td class="num ${clsNum(tReal - tTeo)}">${fmtR(tReal - tTeo)}</td></tr>` : "";
+  $("#sc-resumo").innerHTML = pReal == null || !n ? `<span class="dica" style="margin:0">Preencha o faturamento e as categorias.</span>`
+    : `<span>CMV de proteínas</span><strong class="${bateu ? "bom" : bateu === false ? "ruim" : ""}">${fmtPct(pReal)}</strong>
+       ${meta != null ? `<span class="selo ${bateu ? "ok" : "ruim"}">${bateu ? "Bateu a meta" : "Acima da meta"} de ${fmtPct(meta)}</span>` : ""}`;
+}
+
+$("#sc-salvar").addEventListener("click", async () => {
+  const ini = $("#sc-semana").value, fat = scNum($("#sc-fat").value), meta = scNum($("#sc-meta").value);
+  if (!(fat > 0)) return toast("Informe o faturamento da semana.");
+  if (!(meta > 0 && meta <= 100)) return toast("Informe a meta de CMV em % (entre 0 e 100).");
+  const itens = [], remover = [];
+  for (const tr of $$("#sc-grid tr[data-cat]")) {
+    const teo = scNum(tr.querySelector('[data-k="teo"]').value), real = scNum(tr.querySelector('[data-k="real"]').value);
+    const nome = tr.cells[0].textContent;
+    if ((teo == null) !== (real == null)) return toast(`${nome}: preencha o CMV teórico e o real.`);
+    if (teo != null && (teo < 0 || real < 0)) return toast(`${nome}: valores não podem ser negativos.`);
+    if (teo != null) itens.push({ categoria_id: tr.dataset.cat, cmv_teorico: teo, cmv_real: real });
+    else if (tr.dataset.salvo) remover.push(tr.dataset.cat);
+  }
+  if (!itens.length) return toast("Preencha ao menos uma categoria.");
+  const btn = $("#sc-salvar"); btn.disabled = true;
+  const { data: id, error } = await sb.rpc("salvar_scorecard", { p_semana_inicio: ini, p_faturamento: fat, p_meta_pct: meta, p_itens: itens, p_observacao: $("#sc-obs").value.trim() || null });
+  if (!error && remover.length) {
+    const r = await sb.from("scorecard_itens").update({ excluido_em: new Date().toISOString() }).eq("scorecard_id", id).in("categoria_id", remover).is("excluido_em", null);
+    if (r.error) toast(msgErro(r.error));
+  }
+  btn.disabled = false;
+  if (error) return toast(msgErro(error));
+  toast(`${rotuloSemana(ini)} salva.`);
+  carregarScorecard();
+});
+
+function renderScorecard() {
+  const sem = E.scSemanas || [], cron = [...sem].reverse();
+  const ult = sem[0];
+  const cls = (s) => (s.bateu_meta ? "bom" : "ruim");
+  $("#sc-ind").innerHTML = ult ? `
+    <div class="indicador ${cls(ult)}"><span>CMV de proteínas, semana ${ult.semana}</span><strong>${fmtPct(ult.cmv_real_pct)}</strong><small>${ult.bateu_meta ? "Bateu a meta" : "Acima da meta"} de ${fmtPct(ult.meta_pct)}</small></div>
+    <div class="indicador"><span>CMV teórico, semana ${ult.semana}</span><strong>${fmtPct(ult.cmv_teorico_pct)}</strong><small>${fmtR(ult.cmv_teorico)}</small></div>
+    <div class="indicador ${Number(ult.diferenca) > 0 ? "ruim" : "bom"}"><span>Real − teórico</span><strong>${fmtR(ult.diferenca)}</strong><small>${fmtQtd(Number(ult.cmv_real_pct) - Number(ult.cmv_teorico_pct))} p.p. sobre o faturamento</small></div>
+    <div class="indicador"><span>Faturamento, semana ${ult.semana}</span><strong>${fmtR(ult.faturamento)}</strong><small>${ult.categorias_lancadas} de ${ult.categorias_total} categorias lançadas</small></div>
+    <div class="indicador"><span>Semanas na meta</span><strong>${sem.filter((s) => s.bateu_meta).length} de ${sem.length}</strong><small>Todas as semanas lançadas</small></div>`
+    : `<p class="dica">Nenhuma semana lançada ainda. Use o lançamento abaixo.</p>`;
+
+  const ult12 = cron.slice(-12);
+  grafico("g-scorecard", {
+    type: "line",
+    data: {
+      labels: ult12.map((s) => `Sem ${s.semana}`),
+      datasets: [
+        { label: "CMV real (%)", data: ult12.map((s) => Number(s.cmv_real_pct)), borderColor: COR.tinta, backgroundColor: ult12.map((s) => (s.bateu_meta ? COR.ok : COR.casco)), pointRadius: 6, pointHoverRadius: 7, tension: 0.2 },
+        { label: "CMV teórico (%)", data: ult12.map((s) => Number(s.cmv_teorico_pct)), borderColor: COR.mare, backgroundColor: COR.mare, tension: 0.2 },
+        { label: "Meta (%)", data: ult12.map((s) => Number(s.meta_pct)), borderColor: COR.cinza, borderDash: [6, 4], pointRadius: 0, stepped: true },
+      ],
+    },
+    options: { scales: { y: { ...eixoPct, beginAtZero: true } } },
+  });
+  const catsUlt = ult ? (E.scItens[ult.id] || []).sort((a, b) => a.ordem - b.ordem) : [];
+  grafico("g-sc-cat", {
+    type: "bar",
+    data: { labels: catsUlt.map((c) => c.categoria), datasets: [
+      { label: "% teórico", data: catsUlt.map((c) => Number(c.cmv_teorico_pct)), backgroundColor: COR.mare },
+      { label: "% real", data: catsUlt.map((c) => Number(c.cmv_real_pct)), backgroundColor: catsUlt.map((c) => (Number(c.cmv_real) > Number(c.cmv_teorico) ? COR.casco : COR.ok)) },
+    ] },
+    options: { indexAxis: "y", scales: { x: { ...eixoPct, beginAtZero: true } } },
+  });
+
+  E.scAbertos ??= new Set();
+  const detalhe = (s) => `<div class="sub-tabela"><table><thead><tr><th>Categoria</th><th class="num">CMV teórico</th><th class="num">% teórico</th><th class="num">CMV real</th><th class="num">% real</th><th class="num">Real − teórico</th></tr></thead>
+    <tbody>${(E.scItens[s.id] || []).sort((a, b) => a.ordem - b.ordem).map((c) => `<tr><td>${esc(c.categoria)}</td><td class="num">${fmtR(c.cmv_teorico)}</td><td class="num">${fmtPct(c.cmv_teorico_pct)}</td>
+      <td class="num">${fmtR(c.cmv_real)}</td><td class="num">${fmtPct(c.cmv_real_pct)}</td><td class="num ${clsNum(c.diferenca)}">${fmtR(c.diferenca)}</td></tr>`).join("")}</tbody></table>
+    ${s.observacao ? `<p class="dica" style="margin:8px 0 0">${esc(s.observacao)}</p>` : ""}</div>`;
+  $("#sc-lista").innerHTML = sem.length ? sem.map((s) => { const ab = E.scAbertos.has(s.id); return `
+    <tr class="linha-prod ${ab ? "aberta" : ""}">
+      <td><strong>Semana ${s.semana}</strong><br><small class="dica">${fmtData(s.semana_inicio)} a ${fmtData(s.semana_fim)}</small></td>
+      <td class="num">${fmtR(s.faturamento)}</td><td class="num">${fmtR(s.cmv_teorico)}</td><td class="num">${fmtPct(s.cmv_teorico_pct)}</td>
+      <td class="num">${fmtR(s.cmv_real)}</td><td class="num"><strong class="${s.bateu_meta ? "pos" : "neg"}">${fmtPct(s.cmv_real_pct)}</strong></td>
+      <td class="num">${fmtPct(s.meta_pct)}</td>
+      <td class="sc-status"><span class="selo ${s.bateu_meta ? "ok" : "ruim"}">${s.bateu_meta ? "Bateu a meta" : "Acima da meta"}</span></td>
+      <td class="num">${s.categorias_lancadas}/${s.categorias_total}</td>
+      <td><div class="acoes"><button class="btn sec peq" data-sc-det="${s.id}" aria-expanded="${ab}">${ab ? "Ocultar" : "Categorias"}</button>
+        <button class="btn sec peq" data-sc-edit="${s.semana_inicio}">Editar</button><button class="btn perigo peq" data-sc-del="${s.id}">Excluir</button></div></td></tr>
+    <tr class="detalhe ${ab ? "" : "oculto"}"><td colspan="10">${detalhe(s)}</td></tr>`; }).join("")
+    : `<tr><td colspan="10" class="vazio">Nenhuma semana lançada.</td></tr>`;
+
+  const linhas = [];
+  sem.forEach((s) => {
+    linhas.push({ semana: `Semana ${s.semana}`, periodo: `${fmtData(s.semana_inicio)} a ${fmtData(s.semana_fim)}`, categoria: "CMV DE PROTEÍNAS (TOTAL)", faturamento: Number(s.faturamento),
+      cmv_teorico: Number(s.cmv_teorico), teo_pct: Number(s.cmv_teorico_pct), cmv_real: Number(s.cmv_real), real_pct: Number(s.cmv_real_pct), meta: Number(s.meta_pct), resultado: s.bateu_meta ? "Bateu a meta" : "Acima da meta" });
+    (E.scItens[s.id] || []).sort((a, b) => a.ordem - b.ordem).forEach((c) => linhas.push({ semana: `Semana ${s.semana}`, periodo: "", categoria: c.categoria, faturamento: "",
+      cmv_teorico: Number(c.cmv_teorico), teo_pct: Number(c.cmv_teorico_pct), cmv_real: Number(c.cmv_real), real_pct: Number(c.cmv_real_pct), meta: "", resultado: "" }));
+  });
+  E.exp.scorecard = { titulo: "CMV de proteínas", arquivo: "cmv_proteinas", subtitulo: "Semanal, por categoria",
+    colunas: [{ k: "semana", rotulo: "Semana" }, { k: "periodo", rotulo: "Período" }, { k: "categoria", rotulo: "Categoria" },
+      { k: "faturamento", rotulo: "Faturamento", num: true, fmt: (v) => (v === "" ? "" : fmtR(v)) },
+      { k: "cmv_teorico", rotulo: "CMV teórico", num: true, fmt: fmtR }, { k: "teo_pct", rotulo: "% teórico", num: true, fmt: fmtPct },
+      { k: "cmv_real", rotulo: "CMV real", num: true, fmt: fmtR }, { k: "real_pct", rotulo: "% real", num: true, fmt: fmtPct },
+      { k: "meta", rotulo: "Meta %", num: true, fmt: (v) => (v === "" ? "" : fmtPct(v)) }, { k: "resultado", rotulo: "Resultado" }],
+    linhas };
+}
+
+$("#sc-lista").addEventListener("click", async (ev) => {
+  const det = ev.target.closest("[data-sc-det]");
+  if (det) {
+    const id = det.dataset.scDet, linha = det.closest("tr"), sub = linha.nextElementSibling, abrir = sub.classList.contains("oculto");
+    sub.classList.toggle("oculto", !abrir); linha.classList.toggle("aberta", abrir);
+    det.textContent = abrir ? "Ocultar" : "Categorias"; det.setAttribute("aria-expanded", abrir);
+    abrir ? E.scAbertos.add(id) : E.scAbertos.delete(id);
+    return;
+  }
+  const ed = ev.target.closest("[data-sc-edit]");
+  if (ed) { $("#sc-semana").value = ed.dataset.scEdit; montarFormScorecard(); $("#sc-semana").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+  const del = ev.target.closest("[data-sc-del]");
+  if (del) {
+    const s = E.scSemanas.find((x) => x.id === del.dataset.scDel);
+    if (!confirm(`Excluir o lançamento da semana ${s?.semana}? Fica registrado na auditoria.`)) return;
+    const { error } = await sb.rpc("excluir_scorecard", { p_id: del.dataset.scDel });
+    if (error) return toast(msgErro(error));
+    toast("Semana excluída."); carregarScorecard();
+  }
 });
 
 // ============================================================
