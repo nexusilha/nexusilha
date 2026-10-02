@@ -280,6 +280,8 @@ dialog { border-radius: 10px; }
 
 #per-processos .per-form { max-width: 900px; }
 tr.req-pendente > td { background: #FFF8EC; }
+body:not(.eh-gestor) [data-tratar], body:not(.eh-gestor) [data-just], body:not(.eh-gestor) [data-sc-edit], body:not(.eh-gestor) [data-sc-del],
+body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { display: none !important; }
 /* Login */
 .btn.bloco { display: block; width: 100%; padding: 10px 16px; border: 1px solid var(--mare); border-radius: 6px; background: var(--mare); color: #fff; font: 600 15px var(--sans); }
 .btn.bloco:hover { background: var(--mare-escura); }
@@ -591,8 +593,8 @@ tr.req-pendente > td { background: #FFF8EC; }
         <div class="bloco"><h3>CMV real por categoria (última semana)</h3><div class="grafico"><canvas id="g-sc-cat"></canvas></div></div>
       </div>
 
-      <h3>Lançamento da semana</h3>
-      <div class="sc-form">
+      <h3 data-gestor>Lançamento da semana</h3>
+      <div class="sc-form" data-gestor>
         <div class="filtros">
           <div class="campo"><label for="sc-semana">Semana</label><select id="sc-semana" style="min-width:290px"></select></div>
           <div class="campo"><label for="sc-fat">Faturamento da semana (R$)</label><input id="sc-fat" type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 449055 ou 449055,50" min="0.01" step="0.01" style="width:190px"></div>
@@ -946,7 +948,7 @@ tr.req-pendente > td { background: #FFF8EC; }
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-02.4";
+const VERSAO = "2026-10-02.5";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -998,6 +1000,12 @@ const fmtR = (n) => n == null ? "sem preço" : Number(n).toLocaleString("pt-BR",
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const isGestor = () => E.perfil?.papel === "GESTOR";
 const isLider = () => E.perfil?.papel === "LIDER";
+// Páginas por perfil (gestão vê tudo). Fora da gestão, desvios, estoque, movimentação, CMV e preços são só leitura.
+const PERMISSOES = {
+  ESTOQUISTA: ["painel", "requisicoes", "contagem", "saidas", "entradas", "perdas", "desvios", "saldos", "extrato", "scorecard", "precos"],
+  LIDER: ["requisicoes", "perdas", "processos", "desvios", "saldos", "extrato", "scorecard", "precos"],
+};
+const podeAbrir = (aba) => isGestor() || (PERMISSOES[E.perfil?.papel] || []).includes(aba);
 const ordCat = (c) => { const i = CAT_ORDEM.indexOf(c); return i < 0 ? 99 : i; };
 const ordenarProdutos = (lista) => [...lista].sort((a, b) => ordCat(a.categoria) - ordCat(b.categoria) || a.categoria.localeCompare(b.categoria) || a.nome.localeCompare(b.nome));
 const clsNum = (n) => Number(n) > 0 ? "neg" : Number(n) < 0 ? "pos" : "";
@@ -1137,15 +1145,14 @@ async function iniciar(user) {
     $("#usuario-nome").innerHTML = `<strong title="${esc(nomeExib)}">${esc(nomeExib)}</strong><small>${NOME_PAPEL[perfil.papel] || esc(perfil.papel)}</small>`;
     $("#usuario-avatar").textContent = perfil.nome.trim().split(/\s+/).slice(0, 2).map((x) => x[0]).join("").toUpperCase();
     $$("[data-gestor]").forEach((el) => el.classList.toggle("oculto", !isGestor()));
-    // Líder de cozinha: só a aba de perdas
-    $$("#nav > *, #nav .menu-lista > button").forEach((el) => {
-      if (isLider() && !el.hasAttribute("data-lider")) el.classList.add("oculto");
-      else if (!el.hasAttribute("data-gestor")) el.classList.remove("oculto");
-    });
+    document.body.classList.toggle("eh-gestor", isGestor());
+    // Menu conforme o perfil: cada item só aparece se a página for permitida
+    $$("#nav [data-aba]").forEach((b) => b.classList.toggle("oculto", !podeAbrir(b.dataset.aba)));
+    $$("#nav .menu").forEach((m) => m.classList.toggle("oculto", !m.querySelector("[data-aba]:not(.oculto)")));
     $("#login").classList.add("oculto"); $("#app").classList.remove("oculto");
     await carregarCadastros();
     prepararFormularios();
-    abrirAba(isLider() ? "perdas" : "painel");
+    abrirAba(podeAbrir("painel") ? "painel" : "requisicoes");
   } finally { iniciando = false; }
 }
 
@@ -1155,6 +1162,7 @@ async function iniciar(user) {
 const carregadores = {};
 const fecharMenus = () => $$("#nav .menu.aberto").forEach((m) => m.classList.remove("aberto"));
 function abrirAba(aba, grupo) {
+  if (!podeAbrir(aba)) return;
   if (aba === "cadastros") grupo ||= E.cadGrupo || "produtos";
   $$("#nav [data-aba]").forEach((b) => b.classList.toggle("ativo", b.dataset.aba === aba && (!b.dataset.grupo || b.dataset.grupo === grupo)));
   $$("#nav .menu").forEach((m) => m.classList.toggle("ativo", !!m.querySelector(`[data-aba="${aba}"]`)));
@@ -2507,9 +2515,8 @@ $("#per-salvar").addEventListener("click", async () => {
 });
 
 async function carregarMinhasPerdas() {
-  $("#per-lista-titulo").textContent = isGestor() ? "Registros recentes" : "Meus registros";
-  let qr = sb.from("v_perdas").select("*").order("data_hora", { ascending: false }).limit(40);
-  if (!isGestor()) qr = qr.eq("registrado_por", E.perfil.id);
+  $("#per-lista-titulo").textContent = "Registros recentes";
+  const qr = sb.from("v_perdas").select("*").order("data_hora", { ascending: false }).limit(40);
   const lista = await q(qr);
   E.perdasLista = Object.fromEntries(lista.map((x) => [x.id, x]));
   $("#per-lista").innerHTML = lista.length ? lista.map((x) => `<tr>
