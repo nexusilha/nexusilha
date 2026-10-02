@@ -279,6 +279,7 @@ dialog { border-radius: 10px; }
 #toast { border-radius: 8px; font-size: 14px; }
 
 #per-processos .per-form { max-width: 900px; }
+tr.req-pendente > td { background: #FFF8EC; }
 /* Login */
 .btn.bloco { display: block; width: 100%; padding: 10px 16px; border: 1px solid var(--mare); border-radius: 6px; background: var(--mare); color: #fff; font: 600 15px var(--sans); }
 .btn.bloco:hover { background: var(--mare-escura); }
@@ -368,7 +369,7 @@ dialog { border-radius: 10px; }
       <div class="menu">
         <button class="nav-item" data-menu aria-haspopup="true">Operação <span class="seta">▾</span></button>
         <div class="menu-lista">
-          <button data-aba="requisicoes">Requisições</button>
+          <button data-aba="requisicoes">Requisições <span id="nav-req-badge"></span></button>
           <button data-aba="contagem">Contagem</button>
           <button data-aba="saidas">Saídas</button>
           <button data-aba="entradas">Entradas</button>
@@ -896,7 +897,7 @@ dialog { border-radius: 10px; }
 
 <dialog id="modal-req">
   <form id="form-req" method="dialog">
-    <div class="modal-cab"><h2>Nova requisição</h2></div>
+    <div class="modal-cab"><h2 id="req-titulo">Nova requisição</h2></div>
     <div class="modal-corpo">
       <div id="aviso-extra" class="aviso extra oculto">Já existe retirada hoje. Esta será uma <strong>retirada extra</strong> e precisa de justificativa.</div>
       <div class="campo"><label for="req-resp">Responsável pela requisição</label><input id="req-resp" required autocomplete="off"></div>
@@ -911,6 +912,7 @@ dialog { border-radius: 10px; }
     </div>
     <div class="modal-pe">
       <button type="button" class="btn sec" id="btn-cancelar">Cancelar</button>
+      <button type="submit" class="btn sec oculto" id="btn-salvar-autorizar" data-autorizar="1">Salvar e autorizar</button>
       <button type="submit" class="btn" id="btn-salvar-req">Salvar e imprimir</button>
     </div>
   </form>
@@ -944,7 +946,7 @@ dialog { border-radius: 10px; }
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-02.3";
+const VERSAO = "2026-10-02.4";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -1240,7 +1242,7 @@ async function carregarPainel() {
   saudacao();
   const hoje = hojeSP(), de = addDias(hoje, -6), g = isGestor();
   const vazio = Promise.resolve({ data: [] });
-  const [extras, desv, pend, saldos, precos, trat, obs, perdasPend] = await Promise.all([
+  const [extras, desv, pend, saldos, precos, trat, obs, perdasPend, reqAguard] = await Promise.all([
     sb.from("v_requisicoes_dia").select("numero,dia,data_hora,justificativa_extra,comentario").gt("ordem_dia", 1).gte("dia", de).order("data_hora", { ascending: false }),
     g ? sb.from("v_desvios").select("nome,dia,desvio,desvio_valor,unidade").eq("local", "COZINHA").eq("fora_tolerancia", true).gte("dia", de).order("data_hora", { ascending: false }) : vazio,
     sb.from("v_pendencias_scan").select("numero"),
@@ -1249,7 +1251,10 @@ async function carregarPainel() {
     g ? sb.from("v_tratativas").select("item_id").neq("status", "CONCLUIDO") : vazio,
     g ? sb.from("v_observacao").select("*") : vazio,
     g ? sb.from("perdas").select("id", { count: "exact", head: true }).eq("status", "PENDENTE") : Promise.resolve({ count: 0 }),
+    sb.from("requisicoes").select("id", { count: "exact", head: true }).eq("status", "PENDENTE").is("excluido_em", null),
   ]);
+  const nReq = reqAguard.count || 0;
+  atualizarBadgeReq(nReq);
   const nPerdas = perdasPend.count || 0;
   atualizarBadgePerdas(nPerdas);
   const cob = g ? (await calcularCobertura()).filter((c) => c.alerta) : [];
@@ -1267,6 +1272,7 @@ async function carregarPainel() {
     <div class="indicador ${nObs ? "ruim" : ""}"><span>Itens em observação</span><strong>${nObs}</strong></div>
     <div class="indicador ${nPerdas ? "ruim" : ""}"><span>Perdas aguardando confirmação</span><strong>${nPerdas}</strong></div>` : "") + `
     <div class="indicador"><span>Retiradas extras (7 dias)</span><strong>${extras.data?.length || 0}</strong></div>
+    <div class="indicador ${nReq ? "ruim" : ""}"><span>Requisições aguardando autorização</span><strong>${nReq}</strong></div>
     <div class="indicador"><span>Requisições sem scan</span><strong>${pend.data?.length || 0}</strong></div>`;
 
   const bloco = (titulo, corpo, n) => `<div class="bloco"><h3><span>${titulo}</span>${n == null ? "" : `<span class="cont ${n ? "alerta" : ""}">${n}</span>`}</h3>${corpo}</div>`;
@@ -1483,35 +1489,46 @@ $("#filtro-dia").addEventListener("change", carregarRequisicoes);
 
 async function carregarRequisicoes() {
   const dia = $("#filtro-dia").value;
-  let qr = sb.from("v_requisicoes_dia").select("id,numero,data_hora,dia,responsavel_retirada,comentario,justificativa_extra,scan_path,ordem_dia").order("data_hora", { ascending: false });
+  let qr = sb.from("v_requisicoes_dia").select("id,numero,data_hora,dia,responsavel_retirada,comentario,justificativa_extra,scan_path,ordem_dia,status,autorizado_em,autorizado_por_nome,criado_por_nome,motivo_recusa,editada_pela_gestao").order("data_hora", { ascending: false });
   qr = dia ? qr.eq("dia", dia) : qr.limit(60);
   const reqs = await q(qr);
   const ids = reqs.map((r) => r.id);
   const itensPorReq = {};
   if (ids.length) {
-    const itens = await q(sb.from("requisicao_itens").select("requisicao_id,quantidade,produtos(nome,unidade,gramatura_g)").in("requisicao_id", ids).is("excluido_em", null));
+    const itens = await q(sb.from("requisicao_itens").select("requisicao_id,produto_id,quantidade,produtos(nome,unidade,gramatura_g)").in("requisicao_id", ids).is("excluido_em", null));
     itens.forEach((i) => (itensPorReq[i.requisicao_id] ??= []).push(i));
   }
   E.reqs = reqs; E.itensPorReq = itensPorReq;
   $("#lista-req").innerHTML = reqs.length ? reqs.map((r) => {
     const itens = (itensPorReq[r.id] || []).map((i) => `<li>${fmtQtd(i.quantidade)} ${esc(i.produtos?.unidade)} ${esc(i.produtos?.nome)}</li>`).join("");
+    const aut = r.status === "AUTORIZADA";
     const selos = [
+      r.status === "PENDENTE" ? `<span class="selo pend">Aguardando autorização</span>` : "",
+      r.status === "RECUSADA" ? `<span class="selo ruim">Recusada</span>${r.motivo_recusa ? `<br><small class="dica">${esc(r.motivo_recusa)}</small>` : ""}` : "",
+      aut ? (r.scan_path ? `<span class="selo ok">Assinada</span>` : `<span class="selo pend">Sem scan</span>`) : "",
       r.ordem_dia > 1 ? `<span class="selo extra">Extra: ${esc(r.justificativa_extra || "")}</span>` : "",
-      r.scan_path ? `<span class="selo ok">Assinada</span>` : `<span class="selo pend">Sem scan</span>`,
-    ].join(" ");
-    return `<tr><td class="numero-req">${esc(r.numero)}</td><td>${fmtDataHora(r.data_hora)}</td><td>${esc(r.responsavel_retirada)}</td>
+      r.editada_pela_gestao ? `<span class="selo neutro">Editada pela gestão</span>` : "",
+    ].filter(Boolean).join(" ");
+    const quem = [r.criado_por_nome ? `Pedida por ${esc(r.criado_por_nome)}` : "", aut && r.autorizado_por_nome ? `autorizada por ${esc(r.autorizado_por_nome)} em ${fmtDataHora(r.autorizado_em)}` : ""].filter(Boolean).join(", ");
+    return `<tr class="${r.status === "PENDENTE" ? "req-pendente" : ""}"><td class="numero-req">${esc(r.numero)}</td><td>${fmtDataHora(r.data_hora)}${quem ? `<br><small class="dica">${quem}</small>` : ""}</td><td>${esc(r.responsavel_retirada)}</td>
       <td><ul class="itens-lista">${itens}</ul></td><td>${selos}</td>
       <td><div class="acoes">
-        <button class="btn sec peq" data-acao="imprimir" data-id="${r.id}">Imprimir</button>
-        ${r.scan_path ? `<button class="btn sec peq" data-acao="ver" data-id="${r.id}">Ver scan</button>` : ""}
-        ${(!r.scan_path || isGestor()) ? `<button class="btn sec peq" data-acao="anexar" data-id="${r.id}">${r.scan_path ? "Trocar scan" : "Anexar scan"}</button>` : ""}
-        ${isGestor() ? `<button class="btn perigo peq" data-acao="excluir" data-id="${r.id}">Excluir</button>` : ""}
+        ${r.status === "PENDENTE" && isGestor() ? `<button class="btn peq" data-acao="autorizar" data-id="${r.id}">Autorizar</button>
+          <button class="btn sec peq" data-acao="editar" data-id="${r.id}">Editar</button>
+          <button class="btn perigo peq" data-acao="recusar" data-id="${r.id}">Recusar</button>` : ""}
+        ${aut ? `<button class="btn sec peq" data-acao="imprimir" data-id="${r.id}">Imprimir</button>` : ""}
+        ${aut && r.scan_path ? `<button class="btn sec peq" data-acao="ver" data-id="${r.id}">Ver scan</button>` : ""}
+        ${aut && (!r.scan_path || isGestor()) ? `<button class="btn sec peq" data-acao="anexar" data-id="${r.id}">${r.scan_path ? "Trocar scan" : "Anexar scan"}</button>` : ""}
+        ${isGestor() && r.status !== "PENDENTE" ? `<button class="btn perigo peq" data-acao="excluir" data-id="${r.id}">Excluir</button>` : ""}
       </div></td></tr>`;
   }).join("") : `<tr><td colspan="6" class="vazio">${dia ? "Nenhuma requisição neste dia." : "Nenhuma requisição ainda. Crie a primeira em “Nova requisição”."}</td></tr>`;
 
-  const pend = await q(sb.from("v_pendencias_scan").select("numero"));
-  $("#aviso-pendencias").innerHTML = pend.length
-    ? `<div class="aviso">${pend.length} ${pend.length === 1 ? "requisição está" : "requisições estão"} sem o scan assinado: ${pend.map((d) => esc(d.numero)).join(", ")}.</div>` : "";
+  const [pend, aguard] = await Promise.all([q(sb.from("v_pendencias_scan").select("numero")),
+    q(sb.from("requisicoes").select("numero").eq("status", "PENDENTE").is("excluido_em", null).order("data_hora"))]);
+  atualizarBadgeReq(aguard.length);
+  $("#aviso-pendencias").innerHTML =
+    (aguard.length ? `<div class="aviso">${aguard.length} ${aguard.length === 1 ? "requisição aguarda" : "requisições aguardam"} ${isGestor() ? "sua autorização" : "autorização da gestão"}: ${aguard.map((d) => esc(d.numero)).join(", ")}. O estoque só se movimenta depois de autorizada.</div>` : "") +
+    (pend.length ? `<div class="aviso">${pend.length} ${pend.length === 1 ? "requisição está" : "requisições estão"} sem o scan assinado: ${pend.map((d) => esc(d.numero)).join(", ")}.</div>` : "");
 }
 
 $("#lista-req").addEventListener("click", (ev) => {
@@ -1522,15 +1539,51 @@ $("#lista-req").addEventListener("click", (ev) => {
   if (a === "anexar") { E.reqScanAlvo = r; $("#input-scan").value = ""; $("#input-scan").click(); }
   if (a === "ver") verScan(r);
   if (a === "excluir") excluirRegistro("requisicoes", r.id, `${r.numero}? Os itens voltam para o estoque da câmara principal`, carregarRequisicoes);
+  if (a === "editar") abrirNova(r);
+  if (a === "autorizar") autorizarReq(r);
+  if (a === "recusar") recusarReq(r);
 });
+function atualizarBadgeReq(n) { $("#nav-req-badge").innerHTML = isGestor() && n ? `<span class="selo ruim">${n}</span>` : ""; }
+const listaItensTxt = (r) => (E.itensPorReq[r.id] || []).map((i) => `${fmtQtd(i.quantidade)} ${i.produtos?.unidade} ${i.produtos?.nome}`).join("\n");
+async function autorizarReq(r, pular) {
+  if (!pular && !confirm(`Autorizar a ${r.numero}?\n\n${listaItensTxt(r)}\n\nO estoque sai da câmara principal para a cozinha agora.`)) return;
+  const { error } = await sb.rpc("autorizar_requisicao", { p_id: r.id });
+  if (error) return toast(msgErro(error));
+  toast(`${r.numero} autorizada.`);
+  await carregarRequisicoes();
+  const at = E.reqs.find((x) => x.id === r.id);
+  if (at && confirm("Imprimir a requisição para assinatura?")) imprimir(at, E.itensPorReq[r.id] || []);
+}
+async function recusarReq(r) {
+  const motivo = prompt(`Recusar a ${r.numero}?\n\nMotivo da recusa:`);
+  if (motivo === null) return;
+  if (!motivo.trim()) return toast("Informe o motivo da recusa.");
+  const { error } = await sb.rpc("recusar_requisicao", { p_id: r.id, p_motivo: motivo.trim() });
+  if (error) return toast(msgErro(error));
+  toast(`${r.numero} recusada.`); carregarRequisicoes();
+}
 
 $("#btn-nova").addEventListener("click", abrirNova);
 $("#btn-cancelar").addEventListener("click", () => $("#modal-req").close());
 $("#btn-add-item").addEventListener("click", () => addItemLinha());
 
-async function abrirNova() {
+async function abrirNova(edit) {
+  if (edit && edit.type === "click") edit = null;
+  E.reqEditando = edit || null;
   $("#form-req").reset(); $("#req-erro").textContent = ""; $("#req-itens").innerHTML = "";
-  const { count } = await sb.from("requisicoes").select("id", { count: "exact", head: true }).eq("dia", hojeSP()).is("excluido_em", null);
+  $("#btn-salvar-autorizar").classList.toggle("oculto", !edit);
+  if (edit) {
+    $("#req-titulo").textContent = `Editar ${edit.numero}`;
+    $("#btn-salvar-req").textContent = "Salvar alterações";
+    $("#aviso-extra").classList.add("oculto"); $("#bloco-extra").classList.add("oculto"); $("#req-just").required = false;
+    $("#req-resp").value = edit.responsavel_retirada || "";
+    (E.itensPorReq[edit.id] || []).forEach((i) => addItemLinha(i.produto_id, numIn(i.quantidade)));
+    if (!(E.itensPorReq[edit.id] || []).length) addItemLinha();
+    $("#modal-req").showModal(); return;
+  }
+  $("#req-titulo").textContent = "Nova requisição";
+  $("#btn-salvar-req").textContent = isGestor() ? "Salvar e imprimir" : "Enviar para autorização";
+  const { count } = await sb.from("requisicoes").select("id", { count: "exact", head: true }).eq("dia", hojeSP()).is("excluido_em", null).neq("status", "RECUSADA");
   const extra = (count || 0) > 0;
   $("#aviso-extra").classList.toggle("oculto", !extra);
   $("#bloco-extra").classList.toggle("oculto", !extra);
@@ -1563,6 +1616,15 @@ $("#form-req").addEventListener("submit", async (ev) => {
   const ids = itens.map((i) => i.produto_id);
   if (new Set(ids).size !== ids.length) return ($("#req-erro").textContent = "Há produtos repetidos. Some as quantidades numa linha só.");
   if (!itens.length) return ($("#req-erro").textContent = "Inclua ao menos um item.");
+  if (E.reqEditando) {
+    const r = E.reqEditando, autorizar = ev.submitter?.dataset.autorizar === "1";
+    const { error } = await sb.rpc("editar_requisicao", { p_id: r.id, p_itens: itens, p_responsavel: $("#req-resp").value });
+    if (error) return ($("#req-erro").textContent = msgErro(error));
+    $("#modal-req").close();
+    toast(`${r.numero} alterada.`);
+    if (autorizar) return autorizarReq(r, true);
+    return carregarRequisicoes();
+  }
   const btn = $("#btn-salvar-req"); btn.disabled = true;
   const { data, error } = await sb.rpc("criar_requisicao", {
     p_responsavel: $("#req-resp").value, p_itens: itens,
@@ -1572,6 +1634,7 @@ $("#form-req").addEventListener("submit", async (ev) => {
   btn.disabled = false;
   if (error) return ($("#req-erro").textContent = msgErro(error));
   $("#modal-req").close();
+  if (data.status !== "AUTORIZADA") { toast(`${data.numero} enviada. Aguarda a autorização da gestão antes da retirada.`); return carregarRequisicoes(); }
   toast(`Requisição ${data.numero} criada.`);
   const just = E.justificativas.find((j) => j.id === data.justificativa_extra_id);
   imprimir({ ...data, justificativa_extra: just?.nome }, itens.map((i) => ({ quantidade: i.quantidade, produtos: E.produtos.find((p) => p.id === i.produto_id) })));
