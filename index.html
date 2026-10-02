@@ -253,6 +253,7 @@ main > section > h3 { margin-top: 28px; }
 th { font: 600 12.5px var(--sans); color: var(--tinta-2); background: #F7F9FA; border-bottom: 1px solid var(--linha); padding: 10px 12px; }
 td { padding: 10px 12px; font-size: 14px; border-bottom-color: var(--linha-2); }
 tbody tr:hover > td { background: #FAFBFC; }
+td.num { white-space: nowrap; }
 tr.grupo td { background: #F1F5F7; font: 600 13px var(--sans); color: var(--tinta-2); padding: 8px 12px; }
 .sub-tabela { border-radius: 6px; }
 .sub-tabela th { background: #F3F6F7; font-size: 12px; }
@@ -277,6 +278,7 @@ label { font-size: 13px; font-weight: 500; }
 dialog { border-radius: 10px; }
 #toast { border-radius: 8px; font-size: 14px; }
 
+#per-processos .per-form { max-width: 900px; }
 /* Login */
 .btn.bloco { display: block; width: 100%; padding: 10px 16px; border: 1px solid var(--mare); border-radius: 6px; background: var(--mare); color: #fff; font: 600 15px var(--sans); }
 .btn.bloco:hover { background: var(--mare-escura); }
@@ -318,6 +320,8 @@ dialog { border-radius: 10px; }
   .imp-num { font: 700 18pt var(--cond); text-align: right; }
   .imp-dados { margin: 14px 0; }
   .imp-dados div { margin-bottom: 4px; }
+  .imp-hora { margin-top: 12px !important; }
+  .linha-hora { display: inline-block; width: 42px; border-bottom: 1px solid #000; height: 1.1em; vertical-align: bottom; }
   #impressao table { margin: 10px 0 40px; }
   #impressao th, #impressao td { border: 1px solid #000; background: none; color: #000; }
   .assinaturas { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 60px; }
@@ -448,6 +452,8 @@ dialog { border-radius: 10px; }
       <div class="subnav" id="per-nav">
         <button data-psub="registrar" aria-selected="true">Registrar perda</button>
         <button data-psub="confirmar" data-gestor>Confirmação <span id="per-badge"></span></button>
+        <button data-psub="processos">Processos</button>
+        <button data-psub="relproc" data-gestor>Relatório de processos</button>
       </div>
 
       <div id="per-registrar">
@@ -483,6 +489,40 @@ dialog { border-radius: 10px; }
         <div class="indicadores" id="pc-ind"></div>
         <div class="tabela-wrap"><table><thead><tr><th>Data e hora</th><th>Produto</th><th>Praça</th><th class="num">Qtd</th><th class="num">R$</th><th>Motivo</th><th>Registrado por</th><th>Situação</th><th></th></tr></thead><tbody id="pc-lista"></tbody></table></div>
         <div class="barra-acao" id="pc-barra"><span class="dica" style="margin:0" id="pc-resumo"></span><button class="btn" id="pc-confirmar-todas">Confirmar todas as pendentes listadas</button></div>
+      </div>
+      <div id="per-processos" class="oculto">
+        <p class="dica">Controle de branqueamento e manipulação. Não mexe no estoque: serve para garantir que cada porção saia no peso padrão.</p>
+        <div class="per-form">
+          <div class="per-grade">
+            <div class="campo"><label for="pr-ficha">Processo</label><select id="pr-ficha"></select></div>
+            <div class="campo"><label for="pr-data">Data e hora</label><input id="pr-data" type="datetime-local"></div>
+            <div class="campo"><label for="pr-resp">Responsável pelo processo</label><input id="pr-resp" autocomplete="off"></div>
+          </div>
+          <div class="per-grade">
+            <div class="campo"><label for="pr-ini">Peso inicial, congelado (kg)</label><input id="pr-ini" type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 60"></div>
+            <div class="campo"><label for="pr-fim">Peso final, após o processo (kg)</label><input id="pr-fim" type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 38,2"></div>
+            <div class="campo"><label for="pr-obs">Observação (opcional)</label><input id="pr-obs" autocomplete="off"></div>
+          </div>
+          <div class="indicadores" id="pr-previa"></div>
+          <div class="erro" id="pr-erro"></div>
+          <button class="btn" id="pr-salvar">Registrar processo</button>
+        </div>
+        <h3 id="pr-lista-titulo">Processos recentes</h3>
+        <div class="tabela-wrap"><table><thead><tr><th>Data e hora</th><th>Processo</th><th>Responsável</th><th class="num">Inicial</th><th class="num">Final</th><th class="num">Porções</th><th class="num">Peso por porção</th><th class="num">Perda</th><th>Situação</th><th></th></tr></thead><tbody id="pr-lista"></tbody></table></div>
+      </div>
+
+      <div id="per-relproc" class="oculto">
+        <div class="filtros">
+          <div class="campo"><label for="rp-semana">Semana</label><select id="rp-semana" style="min-width:290px"></select></div>
+          <button class="btn sec peq" data-exp="processos" data-fmt="xlsx">Excel</button>
+          <button class="btn sec peq" data-exp="processos" data-fmt="pdf">PDF</button>
+        </div>
+        <div class="indicadores" id="rp-ind"></div>
+        <div class="graficos"><div class="bloco"><h3>Peso por porção em cada processo × faixa padrão</h3><div class="grafico"><canvas id="g-processos"></canvas></div></div></div>
+        <h3>Por processo</h3>
+        <div class="tabela-wrap"><table><thead><tr><th>Processo</th><th class="num">Vezes</th><th class="num">Inicial (kg)</th><th class="num">Final (kg)</th><th class="num">Porções</th><th class="num">Peso médio por porção</th><th class="num">Faixa padrão</th><th class="num">Perda média</th><th class="num">Abaixo</th><th class="num">Acima</th><th class="num">Faltou (kg)</th><th class="num">Faltou (R$)</th></tr></thead><tbody id="rp-resumo"></tbody></table></div>
+        <h3>Todos os processos da semana</h3>
+        <div class="tabela-wrap"><table><thead><tr><th>Data e hora</th><th>Processo</th><th>Responsável</th><th class="num">Inicial</th><th class="num">Final</th><th class="num">Porções</th><th class="num">Peso por porção</th><th class="num">Perda</th><th>Situação</th><th>Observação</th></tr></thead><tbody id="rp-lista"></tbody></table></div>
       </div>
     </section>
 
@@ -529,7 +569,7 @@ dialog { border-radius: 10px; }
       </div>
       <div id="aviso-pendencias"></div>
       <div class="tabela-wrap"><table>
-        <thead><tr><th>Número</th><th>Data e hora</th><th>Responsável pela aquisição</th><th>Itens</th><th>Situação</th><th></th></tr></thead>
+        <thead><tr><th>Número</th><th>Data e hora</th><th>Responsável pela requisição</th><th>Itens</th><th>Situação</th><th></th></tr></thead>
         <tbody id="lista-req"></tbody>
       </table></div>
     </section>
@@ -696,6 +736,7 @@ dialog { border-radius: 10px; }
         <button data-sub="causas">Causas de desvio</button>
         <button data-sub="pracas">Praças</button>
         <button data-sub="sccats">Categorias do CMV</button>
+        <button data-sub="fichas">Fichas de processo</button>
         <button data-sub="parametros">Parâmetros</button>
         <button data-sub="usuarios">Usuários</button>
       </div>
@@ -750,6 +791,19 @@ dialog { border-radius: 10px; }
         <div class="tabela-wrap"><table><thead><tr><th>Praça</th><th>Ativo</th></tr></thead><tbody id="praca-lista"></tbody></table></div>
       </div>
 
+      <div id="cad-fichas" class="oculto">
+        <p class="dica">Número de porções = peso inicial ÷ divisor. Peso por porção = peso final ÷ número de porções, e deve ficar dentro da faixa. Mudar uma ficha não altera processos já registrados.</p>
+        <div class="filtros">
+          <div class="campo"><label for="fp-nome">Nome do processo</label><input id="fp-nome" autocomplete="off" placeholder="Ex.: Branqueamento camarão cinza 41/50" style="min-width:260px"></div>
+          <div class="campo"><label for="fp-prod">Produto (para valor em R$)</label><select id="fp-prod"></select></div>
+          <div class="campo"><label for="fp-gram">Divisor do peso inicial (g)</label><input id="fp-gram" type="text" inputmode="decimal" autocomplete="off" placeholder="230" style="width:120px"></div>
+          <div class="campo"><label for="fp-min">Porção mínima (g)</label><input id="fp-min" type="text" inputmode="decimal" autocomplete="off" placeholder="145" style="width:110px"></div>
+          <div class="campo"><label for="fp-max">Porção máxima (g)</label><input id="fp-max" type="text" inputmode="decimal" autocomplete="off" placeholder="150" style="width:110px"></div>
+          <button class="btn" id="fp-add">Adicionar</button>
+        </div>
+        <div class="tabela-wrap"><table><thead><tr><th>Processo</th><th>Produto</th><th class="num">Divisor (g)</th><th class="num">Porção mín. (g)</th><th class="num">Porção máx. (g)</th><th class="num">Perda esperada</th><th>Ativo</th><th></th></tr></thead><tbody id="fp-lista"></tbody></table></div>
+      </div>
+
       <div id="cad-sccats" class="oculto">
         <div class="filtros"><div class="campo"><label for="sccat-novo">Nova categoria do CMV de proteínas</label><input id="sccat-novo" list="lista-categorias"></div><button class="btn" id="sccat-add">Adicionar</button></div>
         <p class="dica">Categorias que somam no CMV de proteínas. Use o mesmo nome da categoria dos produtos.</p>
@@ -794,7 +848,7 @@ dialog { border-radius: 10px; }
     <div class="modal-cab"><h2>Nova requisição</h2></div>
     <div class="modal-corpo">
       <div id="aviso-extra" class="aviso extra oculto">Já existe retirada hoje. Esta será uma <strong>retirada extra</strong> e precisa de justificativa.</div>
-      <div class="campo"><label for="req-resp">Responsável pela aquisição</label><input id="req-resp" required autocomplete="off"></div>
+      <div class="campo"><label for="req-resp">Responsável pela requisição</label><input id="req-resp" required autocomplete="off"></div>
       <label>Itens</label>
       <div id="req-itens"></div>
       <button type="button" class="btn sec peq" id="btn-add-item">Adicionar item</button>
@@ -839,7 +893,7 @@ dialog { border-radius: 10px; }
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-01.7";
+const VERSAO = "2026-10-02.1";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -860,7 +914,7 @@ const NOME_LOCAL = { COZINHA: "Cozinha", PRINCIPAL: "Câmara principal" };
 const NOME_TIPO_CONT = { DIARIA: "Diária", CHECK: "Check", GERAL: "Geral" };
 const NOME_TABELA = { entradas: "Entrada", saidas: "Saída", requisicoes: "Requisição", requisicao_itens: "Item de requisição",
   contagens: "Contagem", contagem_itens: "Item de contagem", produtos: "Produto", precos: "Preço", estoque_ideal: "Estoque ideal", perfis: "Usuário", desvio_tratativas: "Tratativa de desvio",
-  perdas: "Perda", pracas: "Praça", scorecard_semanal: "CMV de proteínas (semana)", scorecard_itens: "CMV de proteínas (categoria)", scorecard_categorias: "Categoria do CMV" };
+  perdas: "Perda", pracas: "Praça", processos: "Processo (rendimento)", fichas_processo: "Ficha de processo", scorecard_semanal: "CMV de proteínas (semana)", scorecard_itens: "CMV de proteínas (categoria)", scorecard_categorias: "Categoria do CMV" };
 const NOME_PAPEL = { GESTOR: "Gestão", ESTOQUISTA: "Estoquista", LIDER: "Líder de cozinha" };
 const NOME_ST_PERDA = { PENDENTE: "Aguardando confirmação", CONFIRMADA: "Confirmada", RECUSADA: "Recusada", CANCELADA: "Cancelada" };
 const CLS_ST_PERDA = { PENDENTE: "pend", CONFIRMADA: "ok", RECUSADA: "ruim", CANCELADA: "neutro" };
@@ -1478,12 +1532,13 @@ function imprimir(r, itens) {
       <div class="imp-num">${esc(r.numero)}</div></div>
     <div class="imp-dados">
       <div><strong>Data e hora:</strong> ${fmtDataHora(r.data_hora)}</div>
-      <div><strong>Responsável pela aquisição:</strong> ${esc(r.responsavel_retirada)}</div>
+      <div><strong>Responsável pela requisição:</strong> ${esc(r.responsavel_retirada)}</div>
+      <div class="imp-hora"><strong>Horário da retirada da mercadoria:</strong> <span class="linha-hora"></span> : <span class="linha-hora"></span></div>
       ${r.justificativa_extra ? `<div><strong>Retirada extra:</strong> ${esc(r.justificativa_extra)}${r.comentario ? ` (${esc(r.comentario)})` : ""}</div>` : ""}
     </div>
     <table><thead><tr><th>Produto</th><th>Unidade</th><th class="num">Quantidade</th></tr></thead>
       <tbody>${itens.map((i) => `<tr><td>${esc(i.produtos?.nome)}</td><td>${esc(i.produtos?.unidade)}</td><td class="num">${fmtQtd(i.quantidade)}</td></tr>`).join("")}</tbody></table>
-    <div class="assinaturas"><div>GESTÃO</div><div>RESPONSÁVEL PELA AQUISIÇÃO</div></div>`;
+    <div class="assinaturas"><div>GESTÃO</div><div>RESPONSÁVEL PELA REQUISIÇÃO</div></div>`;
   setTimeout(() => window.print(), 50);
 }
 
@@ -1974,7 +2029,7 @@ async function gerarRelatorio() {
         resp: r.responsavel_retirada, extra: r.ordem_dia > 1 ? `Extra: ${r.justificativa_extra || ""}` : "" };
     }).sort((a, b) => a.ts.localeCompare(b.ts) || a.nome.localeCompare(b.nome));
     colunas = [{ k: "data", rotulo: "Data e hora" }, { k: "numero", rotulo: "Requisição" }, { k: "nome", rotulo: "Produto" }, { k: "unidade", rotulo: "Un." },
-      { k: "qtd", rotulo: "Quantidade", num: true }, { k: "resp", rotulo: "Responsável pela aquisição" }, { k: "extra", rotulo: "Observação" }];
+      { k: "qtd", rotulo: "Quantidade", num: true }, { k: "resp", rotulo: "Responsável pela requisição" }, { k: "extra", rotulo: "Observação" }];
     ind = `<div class="indicador"><span>Requisições</span><strong>${reqs.length}</strong></div>
       <div class="indicador"><span>Retiradas extras</span><strong>${reqs.filter((r) => r.ordem_dia > 1).length}</strong></div>`;
   }
@@ -2006,9 +2061,9 @@ carregadores.cadastros = () => abrirSub($("#cad-nav [aria-selected='true']").dat
 $("#cad-nav").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-sub]"); if (b) abrirSub(b.dataset.sub); });
 function abrirSub(sub) {
   $$("#cad-nav button").forEach((b) => b.setAttribute("aria-selected", b.dataset.sub === sub));
-  ["produtos", "precos", "ideal", "tipos", "justs", "causas", "pracas", "sccats", "parametros", "usuarios"].forEach((s) => $("#cad-" + s).classList.toggle("oculto", s !== sub));
+  ["produtos", "precos", "ideal", "tipos", "justs", "causas", "pracas", "sccats", "fichas", "parametros", "usuarios"].forEach((s) => $("#cad-" + s).classList.toggle("oculto", s !== sub));
   ({ produtos: renderCadProdutos, precos: carregarPrecos, ideal: carregarIdeal, tipos: renderTipos, justs: renderJusts, causas: renderCausas,
-    pracas: renderPracas, sccats: renderScCats, parametros: renderParametros, usuarios: carregarUsuarios })[sub]();
+    pracas: renderPracas, sccats: renderScCats, fichas: renderFichas, parametros: renderParametros, usuarios: carregarUsuarios })[sub]();
 }
 
 // --- Produtos
@@ -2253,11 +2308,13 @@ carregadores.perdas = () => {
 };
 $("#per-nav").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-psub]"); if (b) abrirPerSub(b.dataset.psub); });
 function abrirPerSub(sub) {
-  if (sub === "confirmar" && !isGestor()) sub = "registrar";
+  if ((sub === "confirmar" || sub === "relproc") && !isGestor()) sub = "registrar";
   $$("#per-nav button").forEach((b) => b.setAttribute("aria-selected", b.dataset.psub === sub));
-  $("#per-registrar").classList.toggle("oculto", sub !== "registrar");
-  $("#per-confirmar").classList.toggle("oculto", sub !== "confirmar");
-  if (sub === "registrar") { $("#per-data").value = agoraInput(); carregarMinhasPerdas(); } else carregarConfirmacao();
+  ["registrar", "confirmar", "processos", "relproc"].forEach((x) => $("#per-" + x).classList.toggle("oculto", sub !== x));
+  if (sub === "registrar") { $("#per-data").value = agoraInput(); carregarMinhasPerdas(); }
+  else if (sub === "confirmar") carregarConfirmacao();
+  else if (sub === "processos") abrirProcessos();
+  else carregarRelProcessos();
 }
 function atualizarBadgePerdas(n) {
   const html = n ? `<span class="selo ruim">${n}</span>` : "";
@@ -2614,6 +2671,218 @@ $("#sc-lista").addEventListener("click", async (ev) => {
     if (error) return toast(msgErro(error));
     toast("Semana excluída."); carregarScorecard();
   }
+});
+
+// ============================================================
+// PROCESSOS (branqueamento / manipulação): controle de rendimento, sem estoque
+// Porções = peso inicial ÷ divisor; peso por porção = peso final ÷ porções (deve ficar na faixa)
+// ============================================================
+const fmtKg = (n) => (n == null || n === "" || !isFinite(n) ? "-" : Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 3 }) + " kg");
+const fmtInt = (n) => (n == null || !isFinite(n) ? "-" : Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 0 }));
+const fmtG = (n) => (n == null || n === "" || !isFinite(n) ? "-" : Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " g");
+const RES_PROC = { DENTRO: ["ok", "Dentro do padrão"], ABAIXO: ["ruim", "Porção abaixo do padrão"], ACIMA: ["pend", "Porção acima do padrão"] };
+const seloProc = (r) => (RES_PROC[r] ? `<span class="selo ${RES_PROC[r][0]}">${RES_PROC[r][1]}</span>` : "");
+
+async function carregarFichas() {
+  E.fichas = await q(sb.from("fichas_processo").select("*").order("nome"));
+}
+function calcProcesso(f, ini, fim) {
+  const gb = Number(f.gramatura_bruta_g), min = Number(f.porcao_min_g), max = Number(f.porcao_max_g);
+  const porcoes = Math.floor((ini * 1000) / gb + 1e-9);
+  const r = { gb, min, max, porcoes, finalMin: (porcoes * min) / 1000, finalMax: (porcoes * max) / 1000,
+    perdaMin: (1 - max / gb) * 100, perdaMax: (1 - min / gb) * 100 };
+  if (fim != null && isFinite(fim) && porcoes > 0) {
+    r.pesoPorcao = Math.round((fim * 1000) / porcoes * 10) / 10;
+    r.perdaKg = ini - fim; r.perdaPct = (r.perdaKg / ini) * 100;
+    r.resultado = r.pesoPorcao < min ? "ABAIXO" : r.pesoPorcao > max ? "ACIMA" : "DENTRO";
+    r.faltaKg = Math.max(r.finalMin - fim, 0);
+  }
+  return r;
+}
+
+async function abrirProcessos() {
+  await carregarFichas();
+  const ativas = E.fichas.filter((f) => f.ativo);
+  const sel = $("#pr-ficha"), antes = sel.value;
+  sel.innerHTML = ativas.length ? `<option value="">Selecione</option>` + ativas.map((f) => `<option value="${f.id}">${esc(f.nome)}</option>`).join("")
+    : `<option value="">Nenhuma ficha cadastrada</option>`;
+  if (antes) sel.value = antes;
+  if (ativas.length === 1 && !sel.value) sel.value = ativas[0].id;
+  $("#pr-data").value = agoraInput();
+  if (!$("#pr-resp").value) $("#pr-resp").value = isLider() ? E.perfil.nome : "";
+  previaProcesso();
+  carregarListaProcessos();
+}
+function previaProcesso() {
+  const f = (E.fichas || []).find((x) => x.id === $("#pr-ficha").value);
+  const ini = num($("#pr-ini").value), fim = num($("#pr-fim").value);
+  if (!f) { $("#pr-previa").innerHTML = `<p class="dica" style="margin:0">Escolha o processo para ver o padrão.</p>`; return; }
+  const padrao = `<div class="indicador"><span>Padrão da ficha</span><strong>${fmtQtd(f.porcao_min_g)} a ${fmtQtd(f.porcao_max_g)} g</strong><small>Por porção. Porções = peso inicial ÷ ${fmtQtd(f.gramatura_bruta_g)} g</small></div>`;
+  if (!(ini > 0)) { $("#pr-previa").innerHTML = padrao; return; }
+  const r = calcProcesso(f, ini, fim >= 0 ? fim : null);
+  let html = padrao + `
+    <div class="indicador"><span>Número de porções</span><strong>${fmtInt(r.porcoes)}</strong><small>${fmtKg(ini)} ÷ ${fmtQtd(r.gb)} g</small></div>
+    <div class="indicador"><span>Peso final ideal</span><strong style="font-size:21px">${(+r.finalMin.toFixed(3)).toLocaleString("pt-BR")} a ${fmtKg(+r.finalMax.toFixed(3))}</strong><small>Perda esperada de ${fmtPct2(r.perdaMin)} a ${fmtPct2(r.perdaMax)}</small></div>`;
+  if (r.pesoPorcao != null) {
+    const cls = r.resultado === "DENTRO" ? "bom" : "ruim";
+    html += `<div class="indicador ${cls}"><span>Peso de cada porção</span><strong>${fmtG(r.pesoPorcao)}</strong><small>${RES_PROC[r.resultado][1]}${r.faltaKg > 0 ? `. Faltaram ${fmtKg(+r.faltaKg.toFixed(3))}` : ""}</small></div>
+      <div class="indicador ${cls}"><span>Perda real</span><strong>${fmtPct2(r.perdaPct)}</strong><small>${fmtKg(+r.perdaKg.toFixed(3))} perdidos</small></div>`;
+  }
+  $("#pr-previa").innerHTML = html;
+}
+["#pr-ficha", "#pr-ini", "#pr-fim"].forEach((s) => $(s).addEventListener("input", previaProcesso));
+$("#pr-ficha").addEventListener("change", previaProcesso);
+
+$("#pr-salvar").addEventListener("click", async () => {
+  const erro = (m) => ($("#pr-erro").textContent = m); erro("");
+  const ficha_id = $("#pr-ficha").value, responsavel = $("#pr-resp").value.trim();
+  const ini = num($("#pr-ini").value), fim = num($("#pr-fim").value);
+  if (!ficha_id) return erro("Escolha o processo.");
+  if (!responsavel) return erro("Informe o responsável pelo processo.");
+  if (!(ini > 0)) return erro("Informe o peso inicial, congelado.");
+  if (!(fim >= 0)) return erro("Informe o peso final, após o processo.");
+  if (fim > ini) return erro("O peso final não pode ser maior que o peso inicial.");
+  const f = E.fichas.find((x) => x.id === ficha_id), r = calcProcesso(f, ini, fim);
+  if (!(r.porcoes > 0)) return erro(`O peso inicial não chega a uma porção (${fmtQtd(r.gb)} g).`);
+  const data_hora = inputParaISO($("#pr-data").value);
+  if (new Date(data_hora) > new Date(Date.now() + 5 * 60e3)) return erro("A data e hora não pode estar no futuro.");
+  if (!confirm(`${f.nome}\n${fmtKg(ini)} → ${fmtKg(fim)}\n${fmtInt(r.porcoes)} porções de ${fmtG(r.pesoPorcao)} (padrão ${fmtQtd(r.min)} a ${fmtQtd(r.max)} g).\n\nRegistrar?`)) return;
+  const btn = $("#pr-salvar"); btn.disabled = true;
+  const { error } = await sb.from("processos").insert({ ficha_id, responsavel, peso_inicial_kg: ini, peso_final_kg: fim, data_hora, observacao: $("#pr-obs").value.trim() || null, registrado_por: E.perfil.id });
+  btn.disabled = false;
+  if (error) return erro(msgErro(error));
+  toast(`Processo registrado: ${RES_PROC[r.resultado][1].toLowerCase()}.`);
+  ["#pr-ini", "#pr-fim", "#pr-obs"].forEach((s) => ($(s).value = ""));
+  $("#pr-data").value = agoraInput(); previaProcesso(); carregarListaProcessos();
+});
+
+const linhaProc = (x, comAcao) => `<tr>
+  <td>${fmtDataHora(x.data_hora)}</td><td>${esc(x.ficha)}</td><td>${esc(x.responsavel)}</td>
+  <td class="num">${fmtKg(x.peso_inicial_kg)}</td><td class="num">${fmtKg(x.peso_final_kg)}</td>
+  <td class="num">${fmtInt(x.porcoes)}</td>
+  <td class="num"><strong class="${x.dentro_padrao ? "pos" : "neg"}">${fmtG(x.peso_porcao_g)}</strong><br><small class="dica">padrão ${fmtQtd(x.porcao_min_g)} a ${fmtQtd(x.porcao_max_g)} g</small></td>
+  <td class="num">${fmtPct2(x.perda_pct)}<br><small class="dica">${fmtKg(x.perda_kg)}</small></td>
+  <td>${seloProc(x.resultado)}${Number(x.falta_kg) > 0 ? `<br><small class="dica">faltaram ${fmtKg(x.falta_kg)}</small>` : ""}</td>
+  ${comAcao ? `<td>${isGestor() ? `<button class="btn perigo peq" data-pr-del="${x.id}">Excluir</button>` : ""}</td>` : `<td>${esc(x.observacao || "")}</td>`}</tr>`;
+
+async function carregarListaProcessos() {
+  $("#pr-lista-titulo").textContent = isGestor() ? "Processos recentes" : "Meus processos";
+  let qr = sb.from("v_processos").select("*").order("data_hora", { ascending: false }).limit(30);
+  if (!isGestor()) qr = qr.eq("registrado_por", E.perfil.id);
+  const lista = await q(qr);
+  $("#pr-lista").innerHTML = lista.length ? lista.map((x) => linhaProc(x, true)).join("") : `<tr><td colspan="10" class="vazio">Nenhum processo registrado ainda.</td></tr>`;
+}
+$("#pr-lista").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-pr-del]"); if (!b) return;
+  if (!confirm("Excluir este processo? Fica registrado na auditoria.")) return;
+  const { error } = await sb.from("processos").update({ excluido_em: new Date().toISOString(), excluido_por: E.perfil.id }).eq("id", b.dataset.prDel);
+  if (error) return toast(msgErro(error));
+  toast("Processo excluído."); carregarListaProcessos();
+});
+
+// ---------- Relatório semanal ----------
+function opcoesSemanaRel() {
+  const atual = segunda(hojeSP()), sel = $("#rp-semana"), antes = sel.value;
+  let ops = "";
+  for (let i = 0; i <= 26; i++) { const ini = addDias(atual, -7 * i); ops += `<option value="${ini}">${rotuloSemana(ini)}${i === 0 ? " (em andamento)" : ""}</option>`; }
+  sel.innerHTML = ops; sel.value = antes || atual;
+}
+$("#rp-semana").addEventListener("change", carregarRelProcessos);
+async function carregarRelProcessos() {
+  if (!$("#rp-semana").options.length) opcoesSemanaRel();
+  const ini = $("#rp-semana").value, sem = semanaISO(ini).semana;
+  const lista = await tudo(() => sb.from("v_processos").select("*").gte("dia", ini).lte("dia", addDias(ini, 6)).order("data_hora"));
+  const soma = (arr, k) => arr.reduce((s, x) => s + (Number(x[k]) || 0), 0);
+  const inicial = soma(lista, "peso_inicial_kg"), final = soma(lista, "peso_final_kg"), porc = soma(lista, "porcoes");
+  const medio = porc ? (final * 1000) / porc : null;
+  const abaixo = lista.filter((x) => x.resultado === "ABAIXO").length, acima = lista.filter((x) => x.resultado === "ACIMA").length;
+  const faltaKg = soma(lista, "falta_kg"), faltaR = soma(lista, "falta_valor");
+  const faixas = [...new Set(lista.map((x) => `${fmtQtd(x.porcao_min_g)} a ${fmtQtd(x.porcao_max_g)} g`))];
+  $("#rp-ind").innerHTML = lista.length ? `
+    <div class="indicador"><span>Processos na semana ${sem}</span><strong>${lista.length}</strong><small>${fmtKg(+inicial.toFixed(3))} congelados, ${fmtInt(porc)} porções</small></div>
+    <div class="indicador ${lista.every((x) => x.dentro_padrao) ? "bom" : "ruim"}"><span>Peso médio por porção</span><strong>${fmtG(medio == null ? null : Math.round(medio * 10) / 10)}</strong><small>Padrão ${faixas.join(" / ")}</small></div>
+    <div class="indicador ${abaixo + acima ? "ruim" : "bom"}"><span>Fora do padrão</span><strong>${abaixo + acima} de ${lista.length}</strong><small>${abaixo} abaixo, ${acima} acima</small></div>
+    <div class="indicador ${faltaKg > 0 ? "ruim" : "bom"}"><span>Peso que faltou</span><strong>${fmtKg(+faltaKg.toFixed(3))}</strong><small>Para as porções chegarem ao mínimo</small></div>
+    <div class="indicador ${faltaR > 0 ? "ruim" : ""}"><span>Valor que faltou</span><strong>${fmtR(faltaR)}</strong><small>Pelo preço do kg do produto</small></div>`
+    : `<p class="dica">Nenhum processo registrado na semana ${sem}.</p>`;
+
+  const porFicha = {};
+  lista.forEach((x) => { const f = (porFicha[x.ficha] ??= { nome: x.ficha, n: 0, ini: 0, fim: 0, porc: 0, abaixo: 0, acima: 0, fkg: 0, fr: 0, min: x.porcao_min_g, max: x.porcao_max_g });
+    f.n++; f.ini += Number(x.peso_inicial_kg); f.fim += Number(x.peso_final_kg); f.porc += Number(x.porcoes);
+    if (x.resultado === "ABAIXO") f.abaixo++; if (x.resultado === "ACIMA") f.acima++;
+    f.fkg += Number(x.falta_kg) || 0; f.fr += Number(x.falta_valor) || 0; });
+  const fichas = Object.values(porFicha).sort((a, b) => a.nome.localeCompare(b.nome));
+  $("#rp-resumo").innerHTML = fichas.length ? fichas.map((f) => { const pm = Math.round((f.fim * 1000) / f.porc * 10) / 10, ok = pm >= f.min && pm <= f.max; return `<tr>
+    <td><strong>${esc(f.nome)}</strong></td><td class="num">${f.n}</td><td class="num">${fmtKg(+f.ini.toFixed(3))}</td><td class="num">${fmtKg(+f.fim.toFixed(3))}</td>
+    <td class="num">${fmtInt(f.porc)}</td><td class="num"><strong class="${ok ? "pos" : "neg"}">${fmtG(pm)}</strong></td><td class="num">${fmtQtd(f.min)} a ${fmtQtd(f.max)} g</td>
+    <td class="num">${fmtPct2(((f.ini - f.fim) / f.ini) * 100)}</td>
+    <td class="num">${f.abaixo ? `<span class="selo ruim">${f.abaixo}</span>` : "0"}</td><td class="num">${f.acima ? `<span class="selo pend">${f.acima}</span>` : "0"}</td>
+    <td class="num">${fmtKg(+f.fkg.toFixed(3))}</td><td class="num">${fmtR(f.fr)}</td></tr>`; }).join("")
+    : `<tr><td colspan="12" class="vazio">Sem processos nesta semana.</td></tr>`;
+  $("#rp-lista").innerHTML = lista.length ? lista.map((x) => linhaProc(x, false)).join("") : `<tr><td colspan="10" class="vazio">Sem processos nesta semana.</td></tr>`;
+
+  grafico("g-processos", {
+    type: "bar",
+    data: { labels: lista.map((x) => `${fmtDataHora(x.data_hora).slice(0, 5)} ${x.responsavel}`.slice(0, 30)), datasets: [
+      { type: "bar", label: "Peso por porção (g)", data: lista.map((x) => Number(x.peso_porcao_g)), backgroundColor: lista.map((x) => (x.dentro_padrao ? COR.ok : x.resultado === "ACIMA" ? COR.ambar : COR.casco)) },
+      { type: "line", label: "Mínimo (g)", data: lista.map((x) => Number(x.porcao_min_g)), borderColor: COR.tinta, borderDash: [6, 4], pointRadius: 0 },
+      { type: "line", label: "Máximo (g)", data: lista.map((x) => Number(x.porcao_max_g)), borderColor: COR.cinza, borderDash: [6, 4], pointRadius: 0 },
+    ] },
+    options: { scales: { y: { ticks: { callback: (v) => v + " g" }, suggestedMin: lista.length ? Math.min(...lista.map((x) => Number(x.porcao_min_g))) - 30 : 0 } } },
+  });
+
+  E.exp.processos = { titulo: `Relatório de processos: semana ${sem}`, arquivo: `processos_semana_${sem}`,
+    subtitulo: `${fmtData(ini)} a ${fmtData(addDias(ini, 6))} | ${lista.length} processos | peso médio por porção ${fmtG(medio == null ? null : Math.round(medio * 10) / 10)} | ${abaixo + acima} fora do padrão`,
+    colunas: [{ k: "data", rotulo: "Data e hora" }, { k: "ficha", rotulo: "Processo" }, { k: "responsavel", rotulo: "Responsável" },
+      { k: "ini", rotulo: "Inicial (kg)", num: true }, { k: "fim", rotulo: "Final (kg)", num: true }, { k: "porc", rotulo: "Porções", num: true },
+      { k: "pp", rotulo: "Peso por porção (g)", num: true }, { k: "faixa", rotulo: "Padrão" }, { k: "perda", rotulo: "Perda %", num: true, fmt: fmtPct2 },
+      { k: "falta", rotulo: "Faltou (kg)", num: true }, { k: "faltar", rotulo: "Faltou R$", num: true, fmt: (v) => (v === "" ? "" : fmtR(v)) },
+      { k: "situacao", rotulo: "Situação" }, { k: "observacao", rotulo: "Observação" }],
+    linhas: lista.map((x) => ({ data: fmtDataHora(x.data_hora), ficha: x.ficha, responsavel: x.responsavel, ini: Number(x.peso_inicial_kg), fim: Number(x.peso_final_kg),
+      porc: Number(x.porcoes), pp: Number(x.peso_porcao_g), faixa: `${fmtQtd(x.porcao_min_g)} a ${fmtQtd(x.porcao_max_g)} g`, perda: Number(x.perda_pct),
+      falta: Number(x.falta_kg), faltar: x.falta_valor == null ? "" : Number(x.falta_valor), situacao: RES_PROC[x.resultado]?.[1] || "", observacao: x.observacao || "" })) };
+}
+
+// ---------- Cadastro de fichas ----------
+async function renderFichas() {
+  await carregarFichas();
+  $("#fp-prod").innerHTML = `<option value="">Nenhum</option>` + E.produtos.filter((p) => p.ativo).map((p) => `<option value="${p.id}">${esc(p.nome)} (${esc(p.unidade)})</option>`).join("");
+  const prod = (id) => E.produtos.find((p) => p.id === id);
+  $("#fp-lista").innerHTML = E.fichas.length ? E.fichas.map((f) => `<tr data-fp="${f.id}">
+    <td><input data-c="nome" value="${esc(f.nome)}" style="min-width:220px"></td>
+    <td>${prod(f.produto_id) ? esc(prod(f.produto_id).nome) : "-"}</td>
+    <td class="num"><input class="mini" data-c="gramatura_bruta_g" type="text" inputmode="decimal" value="${numIn(f.gramatura_bruta_g)}"></td>
+    <td class="num"><input class="mini" data-c="porcao_min_g" type="text" inputmode="decimal" value="${numIn(f.porcao_min_g)}"></td>
+    <td class="num"><input class="mini" data-c="porcao_max_g" type="text" inputmode="decimal" value="${numIn(f.porcao_max_g)}"></td>
+    <td class="num">${fmtPct2((1 - f.porcao_max_g / f.gramatura_bruta_g) * 100)} a ${fmtPct2((1 - f.porcao_min_g / f.gramatura_bruta_g) * 100)}</td>
+    <td><input type="checkbox" data-c="ativo" ${f.ativo ? "checked" : ""} aria-label="Ativo"></td>
+    <td><button class="btn sec peq" data-fp-salvar>Salvar</button></td></tr>`).join("")
+    : `<tr><td colspan="8" class="vazio">Nenhuma ficha. Cadastre o primeiro processo acima.</td></tr>`;
+}
+function lerFicha(gram, min, max) {
+  const v = { gramatura_bruta_g: num(gram), porcao_min_g: num(min), porcao_max_g: num(max) };
+  if (!(v.gramatura_bruta_g > 0)) return "Informe o divisor do peso inicial em gramas (ex.: 230).";
+  if (!(v.porcao_min_g > 0) || !(v.porcao_max_g > 0)) return "Informe a porção mínima e a máxima em gramas.";
+  if (v.porcao_max_g < v.porcao_min_g) return "A porção máxima não pode ser menor que a mínima.";
+  if (v.porcao_max_g > v.gramatura_bruta_g) return "A porção máxima não pode ser maior que o divisor.";
+  return v;
+}
+$("#fp-add").addEventListener("click", async () => {
+  const nome = $("#fp-nome").value.trim(); if (!nome) return toast("Informe o nome do processo.");
+  const v = lerFicha($("#fp-gram").value, $("#fp-min").value, $("#fp-max").value); if (typeof v === "string") return toast(v);
+  const { error } = await sb.from("fichas_processo").insert({ nome, produto_id: $("#fp-prod").value || null, ...v });
+  if (error) return toast(msgErro(error));
+  ["#fp-nome", "#fp-gram", "#fp-min", "#fp-max"].forEach((s) => ($(s).value = ""));
+  toast("Ficha cadastrada."); renderFichas();
+});
+$("#fp-lista").addEventListener("click", async (ev) => {
+  if (!ev.target.closest("[data-fp-salvar]")) return;
+  const tr = ev.target.closest("tr"), g = (c) => tr.querySelector(`[data-c="${c}"]`);
+  const nome = g("nome").value.trim(); if (!nome) return toast("Informe o nome do processo.");
+  const v = lerFicha(g("gramatura_bruta_g").value, g("porcao_min_g").value, g("porcao_max_g").value); if (typeof v === "string") return toast(v);
+  const { error } = await sb.from("fichas_processo").update({ nome, ...v, ativo: g("ativo").checked }).eq("id", tr.dataset.fp);
+  if (error) return toast(msgErro(error));
+  toast("Ficha salva. Processos já registrados mantêm o padrão da época."); renderFichas();
 });
 
 // ============================================================
