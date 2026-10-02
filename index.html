@@ -326,6 +326,14 @@ dialog { border-radius: 10px; }
   #impressao th, #impressao td { border: 1px solid #000; background: none; color: #000; }
   .assinaturas { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 60px; }
   .assinaturas div { border-top: 1px solid #000; padding-top: 6px; text-align: center; font-weight: 600; }
+  #impressao.folha-cont { font-size: 10.5pt; }
+  .folha-cont table { margin: 8px 0 24px; }
+  .folha-cont th, .folha-cont td { padding: 4px 8px; }
+  .folha-cont tr.grupo td { font-weight: 700; background: #E9E9E9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .folha-cont td.campo-cont { width: 32%; }
+  .folha-cont tr { break-inside: avoid; }
+  .folha-cont thead { display: table-header-group; }
+  .linha-longa { display: inline-block; width: 220px; border-bottom: 1px solid #000; height: 1.1em; vertical-align: bottom; }
 }
 @media (max-width: 640px) {
   main { padding: 16px 12px 64px; }
@@ -357,7 +365,6 @@ dialog { border-radius: 10px; }
     </div>
     <nav id="nav" aria-label="Menu principal">
       <button class="nav-item" data-aba="painel">Painel</button>
-      <button class="nav-item" data-aba="perdas" data-lider>Perdas <span id="nav-perdas-badge"></span></button>
       <div class="menu">
         <button class="nav-item" data-menu aria-haspopup="true">Operação <span class="seta">▾</span></button>
         <div class="menu-lista">
@@ -365,6 +372,13 @@ dialog { border-radius: 10px; }
           <button data-aba="contagem">Contagem</button>
           <button data-aba="saidas">Saídas</button>
           <button data-aba="entradas">Entradas</button>
+        </div>
+      </div>
+      <div class="menu" data-lider>
+        <button class="nav-item" data-menu aria-haspopup="true">Cozinha <span class="seta">▾</span></button>
+        <div class="menu-lista">
+          <button data-aba="perdas" data-lider>Perdas <span id="nav-perdas-badge"></span></button>
+          <button data-aba="processos" data-lider>Processos</button>
         </div>
       </div>
       <div class="menu" data-gestor>
@@ -379,14 +393,18 @@ dialog { border-radius: 10px; }
         <button class="nav-item" data-menu aria-haspopup="true">Análises <span class="seta">▾</span></button>
         <div class="menu-lista">
           <button data-aba="scorecard" data-gestor>CMV de proteínas</button>
-          <button data-aba="indicadores" data-gestor>Indicadores</button>
+          <button data-aba="indicadores" data-gestor>Indicadores de desvio</button>
+          <button data-aba="precos" data-gestor>Preços</button>
+          <button data-aba="rendimento" data-gestor>Rendimento de processos</button>
           <button data-aba="relatorios">Relatórios</button>
         </div>
       </div>
       <div class="menu" data-gestor>
         <button class="nav-item" data-menu aria-haspopup="true">Gestão <span class="seta">▾</span></button>
         <div class="menu-lista">
-          <button data-aba="cadastros">Cadastros</button>
+          <button data-aba="cadastros" data-grupo="produtos">Produtos e preços</button>
+          <button data-aba="cadastros" data-grupo="config">Configurações</button>
+          <button data-aba="cadastros" data-grupo="usuarios">Usuários</button>
           <button data-aba="auditoria">Auditoria</button>
         </div>
       </div>
@@ -452,8 +470,6 @@ dialog { border-radius: 10px; }
       <div class="subnav" id="per-nav">
         <button data-psub="registrar" aria-selected="true">Registrar perda</button>
         <button data-psub="confirmar" data-gestor>Confirmação <span id="per-badge"></span></button>
-        <button data-psub="processos">Processos</button>
-        <button data-psub="relproc" data-gestor>Relatório de processos</button>
       </div>
 
       <div id="per-registrar">
@@ -490,7 +506,13 @@ dialog { border-radius: 10px; }
         <div class="tabela-wrap"><table><thead><tr><th>Data e hora</th><th>Produto</th><th>Praça</th><th class="num">Qtd</th><th class="num">R$</th><th>Motivo</th><th>Registrado por</th><th>Situação</th><th></th></tr></thead><tbody id="pc-lista"></tbody></table></div>
         <div class="barra-acao" id="pc-barra"><span class="dica" style="margin:0" id="pc-resumo"></span><button class="btn" id="pc-confirmar-todas">Confirmar todas as pendentes listadas</button></div>
       </div>
-      <div id="per-processos" class="oculto">
+    </section>
+
+    <!-- PROCESSOS (registro) -->
+    <section id="aba-processos" class="oculto">
+      <div class="topo-secao"><h2>Processos</h2></div>
+      <p class="ola oculto" id="pr-ola"></p>
+      <div id="per-processos">
         <p class="dica">Controle de branqueamento e manipulação. Não mexe no estoque: serve para garantir que cada porção saia no peso padrão.</p>
         <div class="per-form">
           <div class="per-grade">
@@ -511,7 +533,12 @@ dialog { border-radius: 10px; }
         <div class="tabela-wrap"><table><thead><tr><th>Data e hora</th><th>Processo</th><th>Responsável</th><th class="num">Inicial</th><th class="num">Final</th><th class="num">Porções</th><th class="num">Peso por porção</th><th class="num">Perda</th><th>Situação</th><th></th></tr></thead><tbody id="pr-lista"></tbody></table></div>
       </div>
 
-      <div id="per-relproc" class="oculto">
+    </section>
+
+    <!-- RENDIMENTO DE PROCESSOS (relatório) -->
+    <section id="aba-rendimento" class="oculto">
+      <div class="topo-secao"><h2>Rendimento de processos</h2></div>
+      <div id="per-relproc">
         <div class="filtros">
           <div class="campo"><label for="rp-semana">Semana</label><select id="rp-semana" style="min-width:290px"></select></div>
           <button class="btn sec peq" data-exp="processos" data-fmt="xlsx">Excel</button>
@@ -524,6 +551,30 @@ dialog { border-radius: 10px; }
         <h3>Todos os processos da semana</h3>
         <div class="tabela-wrap"><table><thead><tr><th>Data e hora</th><th>Processo</th><th>Responsável</th><th class="num">Inicial</th><th class="num">Final</th><th class="num">Porções</th><th class="num">Peso por porção</th><th class="num">Perda</th><th>Situação</th><th>Observação</th></tr></thead><tbody id="rp-lista"></tbody></table></div>
       </div>
+    </section>
+
+    <!-- ANÁLISE DE PREÇOS -->
+    <section id="aba-precos" class="oculto">
+      <div class="topo-secao"><h2>Preços</h2>
+        <button class="btn sec peq" data-exp="precos" data-fmt="xlsx">Excel</button>
+        <button class="btn sec peq" data-exp="precos" data-fmt="pdf">PDF</button>
+      </div>
+      <div class="filtros">
+        <div class="campo"><label for="ap-a">Comparar o preço de</label><input type="date" id="ap-a"></div>
+        <div class="campo"><label for="ap-b">com o preço de</label><input type="date" id="ap-b"></div>
+        <div class="campo"><label for="ap-cat">Categoria</label><select id="ap-cat"></select></div>
+        <div class="campo"><label for="ap-busca">Produto</label><input id="ap-busca" placeholder="Nome" autocomplete="off"></div>
+        <div class="campo"><label for="ap-filtro">Mostrar</label><select id="ap-filtro"><option value="todos">Todos</option><option value="mudou">Só os que mudaram</option><option value="alta">Só altas</option><option value="queda">Só quedas</option></select></div>
+        <label class="chk"><input type="checkbox" id="ap-inativos"> Incluir inativos</label>
+      </div>
+      <p class="dica" id="ap-dica"></p>
+      <div class="indicadores" id="ap-ind"></div>
+      <div class="graficos">
+        <div class="bloco"><h3>Maiores variações no período (%)</h3><div class="grafico"><canvas id="g-ap-var"></canvas></div></div>
+        <div class="bloco"><h3 style="gap:10px"><span>Evolução do preço</span><select id="ap-prod" style="max-width:260px;font-weight:400"></select></h3><div class="grafico"><canvas id="g-ap-hist"></canvas></div></div>
+      </div>
+      <h3>Comparação por produto</h3>
+      <div class="tabela-wrap"><table><thead><tr><th>Produto</th><th>Unidade</th><th class="num">Preço em A</th><th class="num">Preço em B</th><th class="num">Diferença</th><th class="num">Variação</th><th class="num">Mínimo no período</th><th class="num">Máximo no período</th><th class="num">Mudanças</th><th></th></tr></thead><tbody id="ap-lista"></tbody></table></div>
     </section>
 
     <!-- SCORECARD: CMV DE PROTEÍNAS -->
@@ -576,7 +627,7 @@ dialog { border-radius: 10px; }
 
     <!-- CONTAGEM -->
     <section id="aba-contagem" class="oculto">
-      <div class="topo-secao"><h2>Contagem</h2></div>
+      <div class="topo-secao"><h2>Contagem</h2><button class="btn sec peq" id="cont-imprimir">Imprimir folha de contagem</button></div>
       <div class="filtros">
         <div class="campo"><label for="cont-tipo">Tipo</label>
           <select id="cont-tipo">
@@ -726,19 +777,19 @@ dialog { border-radius: 10px; }
 
     <!-- CADASTROS -->
     <section id="aba-cadastros" class="oculto">
-      <div class="topo-secao"><h2>Cadastros</h2></div>
+      <div class="topo-secao"><h2 id="cad-titulo">Produtos e preços</h2></div>
       <div class="subnav" id="cad-nav">
-        <button data-sub="produtos" aria-selected="true">Produtos</button>
-        <button data-sub="precos">Preços</button>
-        <button data-sub="ideal">Estoque ideal</button>
-        <button data-sub="tipos">Tipos de saída</button>
-        <button data-sub="justs">Justificativas</button>
-        <button data-sub="causas">Causas de desvio</button>
-        <button data-sub="pracas">Praças</button>
-        <button data-sub="sccats">Categorias do CMV</button>
-        <button data-sub="fichas">Fichas de processo</button>
-        <button data-sub="parametros">Parâmetros</button>
-        <button data-sub="usuarios">Usuários</button>
+        <button data-sub="produtos" data-grupo="produtos" aria-selected="true">Produtos</button>
+        <button data-sub="precos" data-grupo="produtos">Lançar preços</button>
+        <button data-sub="ideal" data-grupo="produtos">Estoque ideal</button>
+        <button data-sub="parametros" data-grupo="config">Parâmetros</button>
+        <button data-sub="tipos" data-grupo="config">Tipos de saída</button>
+        <button data-sub="justs" data-grupo="config">Justificativas de retirada</button>
+        <button data-sub="causas" data-grupo="config">Causas de desvio</button>
+        <button data-sub="pracas" data-grupo="config">Praças</button>
+        <button data-sub="sccats" data-grupo="config">Categorias do CMV</button>
+        <button data-sub="fichas" data-grupo="config">Fichas de processo</button>
+        <button data-sub="usuarios" data-grupo="usuarios">Usuários</button>
       </div>
 
       <div id="cad-produtos">
@@ -893,7 +944,7 @@ dialog { border-radius: 10px; }
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-02.1";
+const VERSAO = "2026-10-02.3";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -1085,7 +1136,7 @@ async function iniciar(user) {
     $("#usuario-avatar").textContent = perfil.nome.trim().split(/\s+/).slice(0, 2).map((x) => x[0]).join("").toUpperCase();
     $$("[data-gestor]").forEach((el) => el.classList.toggle("oculto", !isGestor()));
     // Líder de cozinha: só a aba de perdas
-    $$("#nav > *").forEach((el) => {
+    $$("#nav > *, #nav .menu-lista > button").forEach((el) => {
       if (isLider() && !el.hasAttribute("data-lider")) el.classList.add("oculto");
       else if (!el.hasAttribute("data-gestor")) el.classList.remove("oculto");
     });
@@ -1101,12 +1152,13 @@ async function iniciar(user) {
 // ============================================================
 const carregadores = {};
 const fecharMenus = () => $$("#nav .menu.aberto").forEach((m) => m.classList.remove("aberto"));
-function abrirAba(aba) {
-  $$("#nav [data-aba]").forEach((b) => b.classList.toggle("ativo", b.dataset.aba === aba));
+function abrirAba(aba, grupo) {
+  if (aba === "cadastros") grupo ||= E.cadGrupo || "produtos";
+  $$("#nav [data-aba]").forEach((b) => b.classList.toggle("ativo", b.dataset.aba === aba && (!b.dataset.grupo || b.dataset.grupo === grupo)));
   $$("#nav .menu").forEach((m) => m.classList.toggle("ativo", !!m.querySelector(`[data-aba="${aba}"]`)));
   fecharMenus();
   $$("main > section").forEach((s) => s.classList.toggle("oculto", s.id !== "aba-" + aba));
-  carregadores[aba]?.();
+  carregadores[aba]?.(grupo);
 }
 $("#nav").addEventListener("click", (ev) => {
   const m = ev.target.closest("[data-menu]");
@@ -1115,7 +1167,7 @@ $("#nav").addEventListener("click", (ev) => {
     fecharMenus(); menu.classList.toggle("aberto", !estava); return;
   }
   const b = ev.target.closest("[data-aba]");
-  if (b) abrirAba(b.dataset.aba);
+  if (b) abrirAba(b.dataset.aba, b.dataset.grupo);
 });
 document.addEventListener("click", (ev) => { if (!ev.target.closest("#nav")) fecharMenus(); });
 document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") fecharMenus(); });
@@ -1527,6 +1579,7 @@ $("#form-req").addEventListener("submit", async (ev) => {
 });
 
 function imprimir(r, itens) {
+  $("#impressao").className = "";
   $("#impressao").innerHTML = `
     <div class="imp-cab"><div><h1>Requisição de retirada</h1><div>Câmara principal → câmara da cozinha<br>Ilha do Caranguejo</div></div>
       <div class="imp-num">${esc(r.numero)}</div></div>
@@ -1585,6 +1638,31 @@ function montarContagem() {
   $("#cont-busca").value = ""; $("#cont-resumo").textContent = ""; $("#cont-resultado").innerHTML = "";
 }
 $("#cont-tipo").addEventListener("change", montarContagem);
+// Folha de contagem em papel: mesma lista selecionada (tipo e local), sem estoque esperado (contagem cega)
+$("#cont-imprimir").addEventListener("click", () => {
+  const tipo = $("#cont-tipo").selectedOptions[0].textContent, local = $("#cont-local").selectedOptions[0].textContent;
+  const linhas = [...$("#cont-grid").querySelectorAll("tr.grupo, tr[data-nome]")];
+  const n = linhas.filter((tr) => tr.dataset.nome).length;
+  if (!n) return toast("Nenhum produto na lista selecionada.");
+  const corpo = linhas.map((tr) => tr.classList.contains("grupo")
+    ? `<tr class="grupo"><td colspan="3">${esc(tr.textContent.trim())}</td></tr>`
+    : `<tr><td>${esc(tr.cells[0].textContent)}</td><td>${esc(tr.cells[1].textContent)}</td><td class="campo-cont"></td></tr>`).join("");
+  const imp = $("#impressao");
+  imp.className = "folha-cont";
+  imp.innerHTML = `
+    <div class="imp-cab"><div><h1>Folha de contagem</h1><div>${esc(tipo)}<br>${esc(local)} | Ilha do Caranguejo</div></div>
+      <div class="imp-num" style="font-size:12pt">${n} itens</div></div>
+    <div class="imp-dados">
+      <div><strong>Data:</strong> <span class="linha-hora"></span> / <span class="linha-hora"></span> / <span class="linha-hora"></span>
+        &nbsp;&nbsp; <strong>Hora:</strong> <span class="linha-hora"></span> : <span class="linha-hora"></span></div>
+      <div style="margin-top:10px"><strong>Responsável pela contagem:</strong> <span class="linha-longa"></span></div>
+      <div style="margin-top:6px;font-size:9.5pt">Deixe em branco o que não foi contado; escreva 0 para o que acabou.</div>
+    </div>
+    <table><thead><tr><th>Produto</th><th>Unidade</th><th>Contado</th></tr></thead><tbody>${corpo}</tbody></table>
+    <div class="assinaturas"><div>RESPONSÁVEL PELA CONTAGEM</div><div>GESTÃO</div></div>`;
+  setTimeout(() => window.print(), 50);
+});
+window.addEventListener("afterprint", () => ($("#impressao").className = ""));
 $("#cont-local").addEventListener("change", montarContagem);
 $("#cont-busca").addEventListener("input", (e) => filtrarGrade($("#cont-grid"), e.target.value));
 $("#cont-grid").addEventListener("input", () => contarGrade($("#cont-grid"), "#cont-resumo", "itens preenchidos"));
@@ -2057,7 +2135,17 @@ async function gerarRelatorio() {
 // ============================================================
 // CADASTROS (gestão)
 // ============================================================
-carregadores.cadastros = () => abrirSub($("#cad-nav [aria-selected='true']").dataset.sub);
+const CAD_GRUPOS = { produtos: "Produtos e preços", config: "Configurações", usuarios: "Usuários" };
+carregadores.cadastros = (grupo = "produtos") => {
+  E.cadGrupo = grupo;
+  $("#cad-titulo").textContent = CAD_GRUPOS[grupo];
+  const bts = $$("#cad-nav button");
+  bts.forEach((b) => b.classList.toggle("oculto", b.dataset.grupo !== grupo));
+  const doGrupo = bts.filter((b) => b.dataset.grupo === grupo);
+  $("#cad-nav").classList.toggle("oculto", doGrupo.length < 2);
+  const sel = doGrupo.find((b) => b.getAttribute("aria-selected") === "true") || doGrupo[0];
+  abrirSub(sel.dataset.sub);
+};
 $("#cad-nav").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-sub]"); if (b) abrirSub(b.dataset.sub); });
 function abrirSub(sub) {
   $$("#cad-nav button").forEach((b) => b.setAttribute("aria-selected", b.dataset.sub === sub));
@@ -2308,14 +2396,19 @@ carregadores.perdas = () => {
 };
 $("#per-nav").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-psub]"); if (b) abrirPerSub(b.dataset.psub); });
 function abrirPerSub(sub) {
-  if ((sub === "confirmar" || sub === "relproc") && !isGestor()) sub = "registrar";
+  if (sub !== "registrar" && !isGestor()) sub = "registrar";
   $$("#per-nav button").forEach((b) => b.setAttribute("aria-selected", b.dataset.psub === sub));
-  ["registrar", "confirmar", "processos", "relproc"].forEach((x) => $("#per-" + x).classList.toggle("oculto", sub !== x));
+  ["registrar", "confirmar"].forEach((x) => $("#per-" + x).classList.toggle("oculto", sub !== x));
+  $("#per-nav").classList.toggle("oculto", !isGestor());
   if (sub === "registrar") { $("#per-data").value = agoraInput(); carregarMinhasPerdas(); }
-  else if (sub === "confirmar") carregarConfirmacao();
-  else if (sub === "processos") abrirProcessos();
-  else carregarRelProcessos();
+  else carregarConfirmacao();
 }
+carregadores.processos = () => {
+  $("#pr-ola").classList.toggle("oculto", !isLider());
+  if (isLider()) $("#pr-ola").textContent = `${cumprimento()}, ${primeiroNome()}. Registre aqui o branqueamento e a manipulação.`;
+  abrirProcessos();
+};
+carregadores.rendimento = carregarRelProcessos;
 function atualizarBadgePerdas(n) {
   const html = n ? `<span class="selo ruim">${n}</span>` : "";
   $("#per-badge").innerHTML = html; $("#nav-perdas-badge").innerHTML = isGestor() ? html : "";
@@ -2883,6 +2976,117 @@ $("#fp-lista").addEventListener("click", async (ev) => {
   const { error } = await sb.from("fichas_processo").update({ nome, ...v, ativo: g("ativo").checked }).eq("id", tr.dataset.fp);
   if (error) return toast(msgErro(error));
   toast("Ficha salva. Processos já registrados mantêm o padrão da época."); renderFichas();
+});
+
+// ============================================================
+// ANÁLISE DE PREÇOS: histórico por vigência, comparação entre duas datas
+// Preço e unidade sempre como cadastrados no sistema
+// ============================================================
+const fmtR4 = (n) => (n == null || !isFinite(n) ? "-" : "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+carregadores.precos = async () => {
+  E.histPrecos = await tudo(() => sb.from("precos").select("produto_id,preco_porcao,vigencia_inicio").order("vigencia_inicio"));
+  E.porProdPreco = {};
+  E.histPrecos.forEach((x) => (E.porProdPreco[x.produto_id] ??= []).push({ v: x.vigencia_inicio, p: Number(x.preco_porcao) }));
+  // vigências repetidas no mesmo produto: vale o último lançamento
+  Object.values(E.porProdPreco).forEach((arr) => { const m = new Map(); arr.forEach((x) => m.set(x.v, x.p)); arr.splice(0, arr.length, ...[...m].map(([v, p]) => ({ v, p }))); });
+  const vigs = [...new Set(E.histPrecos.map((x) => x.vigencia_inicio))].sort();
+  E.vigencias = vigs;
+  if (!$("#ap-b").value) $("#ap-b").value = hojeSP();
+  if (!$("#ap-a").value) $("#ap-a").value = vigs.length > 1 ? addDias(vigs[vigs.length - 1], -1) : (vigs[0] || hojeSP());
+  const cats = [...new Set(E.todosProdutos.map((p) => p.categoria))].sort();
+  const antes = $("#ap-cat").value;
+  $("#ap-cat").innerHTML = `<option value="">Todas</option>` + cats.map((c) => `<option>${esc(c)}</option>`).join("");
+  $("#ap-cat").value = antes;
+  renderPrecos();
+};
+const precoEm = (pid, dia) => { const arr = E.porProdPreco[pid] || []; let r = null; for (const x of arr) { if (x.v <= dia) r = x; else break; } return r; };
+["#ap-a", "#ap-b", "#ap-cat", "#ap-filtro", "#ap-inativos"].forEach((s) => $(s).addEventListener("change", renderPrecos));
+$("#ap-busca").addEventListener("input", renderPrecos);
+$("#ap-prod").addEventListener("change", () => graficoHistPreco($("#ap-prod").value));
+
+function renderPrecos() {
+  let a = $("#ap-a").value, b = $("#ap-b").value;
+  if (a && b && a > b) [a, b] = [b, a];
+  const cat = $("#ap-cat").value, termo = $("#ap-busca").value.trim().toLowerCase(), filtro = $("#ap-filtro").value;
+  const prods = ordenarProdutos(E.todosProdutos.filter((p) => ($("#ap-inativos").checked || p.ativo) && (!cat || p.categoria === cat) && (!termo || p.nome.toLowerCase().includes(termo))));
+  const linhas = prods.map((p) => {
+    const pa = precoEm(p.id, a), pb = precoEm(p.id, b);
+    const noPeriodo = (E.porProdPreco[p.id] || []).filter((x) => x.v > a && x.v <= b);
+    const valores = [pa?.p, ...noPeriodo.map((x) => x.p)].filter((x) => x != null);
+    let mudancas = 0, ant = pa?.p;
+    noPeriodo.forEach((x) => { if (ant != null && x.p !== ant) mudancas++; ant = x.p; });
+    const dif = pa && pb ? pb.p - pa.p : null, pct = pa && pb && pa.p ? (dif / pa.p) * 100 : null;
+    return { p, pa, pb, dif, pct, min: valores.length ? Math.min(...valores) : null, max: valores.length ? Math.max(...valores) : null, mudancas };
+  }).filter((l) => filtro === "todos" || (filtro === "mudou" && l.dif) || (filtro === "alta" && l.dif > 0) || (filtro === "queda" && l.dif < 0));
+  E.apLinhas = linhas;
+
+  const comp = linhas.filter((l) => l.dif != null);
+  const altas = comp.filter((l) => l.dif > 0), quedas = comp.filter((l) => l.dif < 0);
+  const maior = [...comp].sort((x, y) => y.pct - x.pct)[0], menor = [...comp].sort((x, y) => x.pct - y.pct)[0];
+  const media = comp.length ? comp.reduce((s, l) => s + l.pct, 0) / comp.length : null;
+  const ultVig = E.vigencias[E.vigencias.length - 1];
+  $("#ap-dica").textContent = `Preço vigente em ${fmtData(a)} (A) contra ${fmtData(b)} (B), na unidade cadastrada no sistema. Última atualização com vigência em ${ultVig ? fmtData(ultVig) + `, ${rotuloSemana(segunda(ultVig)).split(" (")[0].toLowerCase()}` : "-"}.`;
+  $("#ap-ind").innerHTML = `
+    <div class="indicador"><span>Produtos comparados</span><strong>${comp.length}</strong><small>${altas.length + quedas.length} mudaram de preço</small></div>
+    <div class="indicador ${altas.length ? "ruim" : ""}"><span>Altas</span><strong>${altas.length}</strong><small>${maior && maior.pct > 0 ? `Maior: ${esc(maior.p.nome)} ${fmtPct2(maior.pct)}` : "Nenhuma"}</small></div>
+    <div class="indicador ${quedas.length ? "bom" : ""}"><span>Quedas</span><strong>${quedas.length}</strong><small>${menor && menor.pct < 0 ? `Maior: ${esc(menor.p.nome)} ${fmtPct2(menor.pct)}` : "Nenhuma"}</small></div>
+    <div class="indicador ${media > 0 ? "ruim" : media < 0 ? "bom" : ""}"><span>Variação média</span><strong>${media == null ? "-" : (media > 0 ? "+" : "") + fmtPct2(media)}</strong><small>Média simples entre os produtos</small></div>`;
+
+  const top = [...comp].filter((l) => l.dif).sort((x, y) => Math.abs(y.pct) - Math.abs(x.pct)).slice(0, 12);
+  grafico("g-ap-var", {
+    type: "bar",
+    data: { labels: top.map((l) => l.p.nome.replace(/^PORÇÃO: /, "").slice(0, 28)), datasets: [{ label: "Variação (%)", data: top.map((l) => +l.pct.toFixed(2)), backgroundColor: top.map((l) => (l.dif > 0 ? COR.casco : COR.ok)) }] },
+    options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { ...eixoPct } } },
+  });
+
+  E.apAbertos ??= new Set();
+  const historico = (p) => { const arr = E.porProdPreco[p.id] || []; return `<div class="sub-tabela"><table><thead><tr><th>Vigência</th><th>Semana</th><th class="num">Preço por ${esc(p.unidade)}</th><th class="num">Diferença</th><th class="num">Variação</th></tr></thead><tbody>${
+    [...arr].reverse().map((x, i, r) => { const prev = r[i + 1]; const d = prev ? x.p - prev.p : null; return `<tr><td>${fmtData(x.v)}</td><td>${semanaISO(x.v).semana}</td><td class="num">${fmtR4(x.p)}</td>
+      <td class="num ${d > 0 ? "neg" : d < 0 ? "pos" : ""}">${d == null ? "-" : (d > 0 ? "+" : d < 0 ? "-" : "") + fmtR4(Math.abs(d))}</td><td class="num ${d > 0 ? "neg" : d < 0 ? "pos" : ""}">${d == null || !prev.p ? "-" : (d > 0 ? "+" : d < 0 ? "-" : "") + fmtPct2(Math.abs(d / prev.p) * 100)}</td></tr>`; }).join("")}</tbody></table></div>`; };
+  const sinal = (n, f) => (n == null ? "-" : (n > 0 ? "+" : n < 0 ? "-" : "") + f(Math.abs(n)));
+  let catAtual = null;
+  $("#ap-lista").innerHTML = linhas.length ? linhas.map((l) => {
+    const ab = E.apAbertos.has(l.p.id), cls = l.dif > 0 ? "neg" : l.dif < 0 ? "pos" : "";
+    const grupo = l.p.categoria !== catAtual ? ((catAtual = l.p.categoria), `<tr class="grupo"><td colspan="10">${esc(catAtual)}</td></tr>`) : "";
+    return `${grupo}<tr class="linha-prod ${ab ? "aberta" : ""}">
+      <td>${esc(l.p.nome)}${l.p.ativo ? "" : ` <span class="selo neutro">inativo</span>`}</td><td>${esc(l.p.unidade)}</td>
+      <td class="num">${fmtR4(l.pa?.p)}</td><td class="num"><strong>${fmtR4(l.pb?.p)}</strong></td>
+      <td class="num ${cls}">${sinal(l.dif, fmtR4)}</td><td class="num ${cls}"><strong>${sinal(l.pct, fmtPct2)}</strong></td>
+      <td class="num">${fmtR4(l.min)}</td><td class="num">${fmtR4(l.max)}</td><td class="num">${l.mudancas}</td>
+      <td class="num"><button class="btn sec peq" data-ap-det="${l.p.id}" aria-expanded="${ab}">${ab ? "Ocultar" : "Histórico"}</button></td></tr>
+      <tr class="detalhe ${ab ? "" : "oculto"}"><td colspan="10">${historico(l.p)}</td></tr>`;
+  }).join("") : `<tr><td colspan="10" class="vazio">Nenhum produto neste filtro.</td></tr>`;
+
+  const sel = $("#ap-prod"), antes = sel.value;
+  sel.innerHTML = linhas.map((l) => `<option value="${l.p.id}">${esc(l.p.nome)}</option>`).join("");
+  const padrao = antes && linhas.some((l) => l.p.id === antes) ? antes : (top[0]?.p.id || linhas[0]?.p.id || "");
+  sel.value = padrao; graficoHistPreco(padrao);
+
+  E.exp.precos = { titulo: "Análise de preços", arquivo: "analise_precos", subtitulo: `Preço em ${fmtData(a)} contra ${fmtData(b)}${cat ? " | " + cat : ""}`,
+    colunas: [{ k: "cat", rotulo: "Categoria" }, { k: "nome", rotulo: "Produto" }, { k: "un", rotulo: "Unidade" },
+      { k: "a", rotulo: `Preço ${fmtData(a)}`, num: true, fmt: (v) => (v === "" ? "" : fmtR4(v)) }, { k: "b", rotulo: `Preço ${fmtData(b)}`, num: true, fmt: (v) => (v === "" ? "" : fmtR4(v)) },
+      { k: "dif", rotulo: "Diferença R$", num: true, fmt: (v) => (v === "" ? "" : fmtR4(v)) }, { k: "pct", rotulo: "Variação %", num: true, fmt: (v) => (v === "" ? "" : fmtPct2(v)) },
+      { k: "min", rotulo: "Mínimo", num: true, fmt: (v) => (v === "" ? "" : fmtR4(v)) }, { k: "max", rotulo: "Máximo", num: true, fmt: (v) => (v === "" ? "" : fmtR4(v)) }, { k: "mud", rotulo: "Mudanças", num: true }],
+    linhas: linhas.map((l) => ({ cat: l.p.categoria, nome: l.p.nome, un: l.p.unidade, a: l.pa?.p ?? "", b: l.pb?.p ?? "", dif: l.dif ?? "", pct: l.pct == null ? "" : +l.pct.toFixed(2), min: l.min ?? "", max: l.max ?? "", mud: l.mudancas })) };
+}
+function graficoHistPreco(pid) {
+  const p = E.todosProdutos.find((x) => x.id === pid), arr = E.porProdPreco?.[pid] || [];
+  const pts = [...arr];
+  if (pts.length) pts.push({ v: hojeSP(), p: pts[pts.length - 1].p });
+  grafico("g-ap-hist", {
+    type: "line",
+    data: { labels: pts.map((x, i) => (i === pts.length - 1 && pts.length > 1 ? "Hoje" : `${fmtData(x.v).slice(0, 5)} (S${semanaISO(x.v).semana})`)),
+      datasets: [{ label: p ? `Preço por ${p.unidade}` : "Preço", data: pts.map((x) => x.p), borderColor: COR.mare, backgroundColor: COR.mare, stepped: true, pointRadius: 4 }] },
+    options: { plugins: { legend: { display: true } }, scales: { y: { ticks: { callback: (v) => "R$ " + Number(v).toLocaleString("pt-BR") } } } },
+  });
+}
+$("#ap-lista").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-ap-det]"); if (!b) return;
+  const id = b.dataset.apDet, linha = b.closest("tr"), sub = linha.nextElementSibling, abrir = sub.classList.contains("oculto");
+  sub.classList.toggle("oculto", !abrir); linha.classList.toggle("aberta", abrir);
+  b.textContent = abrir ? "Ocultar" : "Histórico"; b.setAttribute("aria-expanded", abrir);
+  abrir ? E.apAbertos.add(id) : E.apAbertos.delete(id);
+  if (abrir) { $("#ap-prod").value = id; graficoHistPreco(id); }
 });
 
 // ============================================================
