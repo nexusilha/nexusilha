@@ -563,7 +563,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
           <datalist id="per-motivos"><option value="Queimou no preparo"><option value="Caiu no chão"><option value="Erro de preparo"><option value="Devolução de cliente"><option value="Produto vencido ou fora do padrão"><option value="Erro de porcionamento"></datalist>
           <div class="campo"><label for="per-obs">Observação (opcional)</label><input id="per-obs" autocomplete="off"></div>
           <div class="erro" id="per-erro"></div>
-          <button class="btn" id="per-salvar">Registrar perda</button>
+          <div class="acoes"><button class="btn" id="per-salvar">Registrar perda</button><button class="btn sec oculto" id="per-cancelar-edicao">Cancelar edição</button></div>
         </div>
         <h3 id="per-lista-titulo">Registros recentes</h3>
         <div class="tabela-wrap"><table><thead><tr><th>Data e hora</th><th>Produto</th><th>Praça</th><th class="num">Qtd</th><th>Motivo</th><th>Registrado por</th><th>Situação</th><th></th></tr></thead><tbody id="per-lista"></tbody></table></div>
@@ -865,6 +865,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
         <button data-sub="justs" data-grupo="config">Justificativas de retirada</button>
         <button data-sub="causas" data-grupo="config">Causas de desvio</button>
         <button data-sub="pracas" data-grupo="config">Praças</button>
+        <button data-sub="categorias" data-grupo="config">Categorias de produtos</button>
         <button data-sub="sccats" data-grupo="config">Categorias do CMV</button>
         <button data-sub="fichas" data-grupo="config">Fichas de processo</button>
         <button data-sub="usuarios" data-grupo="usuarios">Usuários</button>
@@ -931,6 +932,11 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
           <button class="btn" id="fp-add">Adicionar</button>
         </div>
         <div class="tabela-wrap"><table><thead><tr><th>Processo</th><th>Produto</th><th class="num">Divisor (g)</th><th class="num">Porção mín. (g)</th><th class="num">Porção máx. (g)</th><th class="num">Perda esperada</th><th>Ativo</th><th></th></tr></thead><tbody id="fp-lista"></tbody></table></div>
+      </div>
+
+      <div id="cad-categorias" class="oculto">
+        <p class="dica">Categorias com controle de desvio (CD e CP) entram nos desvios, tratativas, alertas e recontagem. As demais servem só para controle de estoque e retirada: saldo, requisições e contagem continuam normais.</p>
+        <div class="tabela-wrap"><table><thead><tr><th>Categoria</th><th class="num">Produtos ativos</th><th>Controle de desvio</th></tr></thead><tbody id="cat-lista"></tbody></table></div>
       </div>
 
       <div id="cad-sccats" class="oculto">
@@ -1023,7 +1029,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-06.1";
+const VERSAO = "2026-10-07.2";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -1044,7 +1050,7 @@ const NOME_LOCAL = { COZINHA: "Cozinha", PRINCIPAL: "Câmara principal" };
 const NOME_TIPO_CONT = { DIARIA: "Diária", CHECK: "Check", GERAL: "Geral" };
 const NOME_TABELA = { entradas: "Entrada", saidas: "Saída", requisicoes: "Requisição", requisicao_itens: "Item de requisição",
   contagens: "Contagem", contagem_itens: "Item de contagem", produtos: "Produto", precos: "Preço", estoque_ideal: "Estoque ideal", perfis: "Usuário", desvio_tratativas: "Tratativa de desvio",
-  perdas: "Perda", pracas: "Praça", processos: "Processo (rendimento)", fichas_processo: "Ficha de processo", scorecard_semanal: "CMV de proteínas (semana)", scorecard_itens: "CMV de proteínas (categoria)", scorecard_categorias: "Categoria do CMV" };
+  perdas: "Perda", pracas: "Praça", categorias: "Categoria", processos: "Processo (rendimento)", fichas_processo: "Ficha de processo", scorecard_semanal: "CMV de proteínas (semana)", scorecard_itens: "CMV de proteínas (categoria)", scorecard_categorias: "Categoria do CMV" };
 const NOME_PAPEL = { GESTOR: "Gestão", ESTOQUISTA: "Estoquista", LIDER: "Líder de cozinha" };
 const NOME_ST_PERDA = { PENDENTE: "Aguardando confirmação", CONFIRMADA: "Confirmada", RECUSADA: "Recusada", CANCELADA: "Cancelada" };
 const CLS_ST_PERDA = { PENDENTE: "pend", CONFIRMADA: "ok", RECUSADA: "ruim", CANCELADA: "neutro" };
@@ -1066,6 +1072,7 @@ const hojeSP = () => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(n
 const diaSP = (iso) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(iso));
 const addDias = (ymd, n) => { const d = new Date(ymd + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const nDias = (de, ate) => Math.round((new Date(ate + "T12:00:00Z") - new Date(de + "T12:00:00Z")) / 864e5) + 1;
+const isoParaInput = (iso) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
 const agoraInput = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
 const inputParaISO = (v) => (v ? new Date(v).toISOString() : new Date().toISOString());
 const fmtDataHora = (iso) => new Date(iso).toLocaleString("pt-BR", { timeZone: TZ, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -2298,9 +2305,9 @@ carregadores.cadastros = (grupo = "produtos") => {
 $("#cad-nav").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-sub]"); if (b) abrirSub(b.dataset.sub); });
 function abrirSub(sub) {
   $$("#cad-nav button").forEach((b) => b.setAttribute("aria-selected", b.dataset.sub === sub));
-  ["produtos", "precos", "ideal", "tipos", "justs", "causas", "pracas", "sccats", "fichas", "parametros", "usuarios"].forEach((s) => $("#cad-" + s).classList.toggle("oculto", s !== sub));
+  ["produtos", "precos", "ideal", "tipos", "justs", "causas", "pracas", "categorias", "sccats", "fichas", "parametros", "usuarios"].forEach((s) => $("#cad-" + s).classList.toggle("oculto", s !== sub));
   ({ produtos: renderCadProdutos, precos: carregarPrecos, ideal: carregarIdeal, tipos: renderTipos, justs: renderJusts, causas: renderCausas,
-    pracas: renderPracas, sccats: renderScCats, fichas: renderFichas, parametros: renderParametros, usuarios: carregarUsuarios })[sub]();
+    pracas: renderPracas, categorias: renderCategorias, sccats: renderScCats, fichas: renderFichas, parametros: renderParametros, usuarios: carregarUsuarios })[sub]();
 }
 
 // --- Produtos
@@ -2470,6 +2477,19 @@ async function addSimples(input, tabela, render) {
   $(input).value = ""; await carregarCadastros(); render(); toast("Adicionado.");
 }
 $("#tipo-add").addEventListener("click", () => addSimples("#tipo-novo", "tipos_saida", renderTipos));
+async function renderCategorias() {
+  const cats = await q(sb.from("categorias").select("*").order("nome"));
+  const n = (c) => E.todosProdutos.filter((p) => p.ativo && p.categoria === c).length;
+  $("#cat-lista").innerHTML = cats.map((c) => `<tr><td>${esc(c.nome)}</td><td class="num">${n(c.nome)}</td>
+    <td><label class="chk" style="padding:0"><input type="checkbox" data-cat="${esc(c.nome)}" ${c.controla_desvio ? "checked" : ""}> ${c.controla_desvio ? "Sim" : "Não, só estoque e retirada"}</label></td></tr>`).join("")
+    || `<tr><td colspan="3" class="vazio">Nenhuma categoria.</td></tr>`;
+}
+$("#cat-lista").addEventListener("change", async (ev) => {
+  const i = ev.target.closest("[data-cat]"); if (!i) return;
+  const { error } = await sb.from("categorias").update({ controla_desvio: i.checked }).eq("nome", i.dataset.cat);
+  if (error) { i.checked = !i.checked; return toast(msgErro(error)); }
+  toast(i.checked ? `${i.dataset.cat}: com controle de desvio.` : `${i.dataset.cat}: só estoque e retirada.`); renderCategorias();
+});
 const renderPracas = () => renderListaSimples("#praca-lista", E.pracas, "pracas");
 const renderScCats = () => renderListaSimples("#sccat-lista", E.scCats, "scorecard_categorias");
 $("#praca-add").addEventListener("click", () => addSimples("#praca-novo", "pracas", renderPracas));
@@ -2498,7 +2518,7 @@ async function carregarUsuarios() {
   const lista = await q(sb.from("perfis").select("id,nome,email,papel,ativo").order("nome"));
   $("#usu-lista").innerHTML = lista.map((u) => {
     const eu = u.id === E.perfil.id;
-    return `<tr data-uid="${u.id}"><td>${esc(u.nome)}${eu ? ` <span class="selo neutro">você</span>` : ""}</td><td>${esc(u.email)}</td>
+    return `<tr data-uid="${u.id}"><td><input data-usu="nome" value="${esc(u.nome)}" autocomplete="off" aria-label="Nome" style="min-width:200px">${eu ? ` <span class="selo neutro">você</span>` : ""}</td><td>${esc(u.email)}</td>
       <td><select data-usu="papel" ${eu ? "disabled" : ""}>${Object.entries(NOME_PAPEL).map(([k, v]) => `<option value="${k}" ${u.papel === k ? "selected" : ""}>${v}</option>`).join("")}</select></td>
       <td><input type="checkbox" data-usu="ativo" style="width:auto" ${u.ativo ? "checked" : ""} ${eu ? "disabled" : ""}></td>
       <td><button class="btn sec peq" data-usu-senha="${u.id}" data-nome="${esc(u.nome)}">Trocar senha</button></td></tr>`;
@@ -2507,10 +2527,16 @@ async function carregarUsuarios() {
 $("#usu-lista").addEventListener("change", async (ev) => {
   const el = ev.target.closest("[data-usu]"); if (!el) return;
   const id = el.closest("tr").dataset.uid;
-  const campo = el.dataset.usu, valor = campo === "ativo" ? el.checked : el.value;
+  const campo = el.dataset.usu, valor = campo === "ativo" ? el.checked : campo === "nome" ? el.value.trim() : el.value;
+  if (campo === "nome" && !valor) { toast("O nome não pode ficar vazio."); return carregarUsuarios(); }
   const { error } = await sb.from("perfis").update({ [campo]: valor }).eq("id", id);
   if (error) { toast(msgErro(error)); return carregarUsuarios(); }
-  toast(campo === "ativo" ? (valor ? "Login reativado." : "Login desativado: não entra mais no sistema.") : "Perfil alterado.");
+  if (campo === "nome" && id === E.perfil.id) {
+    E.perfil.nome = valor;
+    $("#usuario-nome").querySelector("strong").textContent = valor;
+    $("#usuario-avatar").textContent = valor.split(/\s+/).slice(0, 2).map((x) => x[0]).join("").toUpperCase();
+  }
+  toast(campo === "ativo" ? (valor ? "Login reativado." : "Login desativado: não entra mais no sistema.") : campo === "nome" ? "Nome alterado." : "Perfil alterado.");
 });
 $("#usu-lista").addEventListener("click", async (ev) => {
   const b = ev.target.closest("[data-usu-senha]"); if (!b) return;
@@ -2580,17 +2606,60 @@ $("#per-salvar").addEventListener("click", async () => {
   if (!motivo) return erro("Informe o motivo da perda.");
   const data_hora = inputParaISO($("#per-data").value);
   if (new Date(data_hora) > new Date(Date.now() + 5 * 60e3)) return erro("A data e hora não pode estar no futuro.");
-  const p = E.produtos.find((x) => x.id === produto_id);
-  if (!confirm(`Registrar perda de ${fmtQtd(quantidade)} ${p?.unidade || ""} de ${p?.nome}?`)) return;
+  const p = E.todosProdutos.find((x) => x.id === produto_id);
+  const ed = E.perdaEditando;
+  if (!confirm(`${ed ? "Salvar alterações na perda" : "Registrar perda"}: ${fmtQtd(quantidade)} ${p?.unidade || ""} de ${p?.nome}?${ed?.status === "CONFIRMADA" ? "\n\nA perda já está confirmada: a saída gerada também será ajustada." : ""}`)) return;
   const btn = $("#per-salvar"); btn.disabled = true;
-  const { error } = await sb.from("perdas").insert({ produto_id, praca_id, quantidade, motivo, data_hora, observacao: $("#per-obs").value.trim() || null, registrado_por: E.perfil.id });
+  const observacao = $("#per-obs").value.trim() || null;
+  const { error } = ed
+    ? await sb.rpc("editar_perda", { p_id: ed.id, p_produto: produto_id, p_praca: praca_id, p_quantidade: quantidade, p_motivo: motivo, p_data_hora: data_hora, p_observacao: observacao })
+    : await sb.from("perdas").insert({ produto_id, praca_id, quantidade, motivo, data_hora, observacao, registrado_por: E.perfil.id });
   btn.disabled = false;
   if (error) return erro(msgErro(error));
-  toast("Perda registrada. Ela aguarda a confirmação da gestão.");
-  $("#per-produto").value = ""; $("#per-un").textContent = ""; $("#per-qtd").value = ""; $("#per-motivo").value = ""; $("#per-obs").value = "";
-  $("#per-data").value = agoraInput();
+  toast(ed ? "Perda alterada." : "Perda registrada. Ela aguarda a confirmação da gestão.");
+  limparFormPerda();
   carregarMinhasPerdas();
 });
+function limparFormPerda() {
+  E.perdaEditando = null;
+  $("#per-produto").value = ""; $("#per-un").textContent = ""; $("#per-qtd").value = ""; $("#per-motivo").value = ""; $("#per-obs").value = "";
+  $("#per-data").value = agoraInput(); $("#per-erro").textContent = "";
+  $("#per-salvar").textContent = "Registrar perda"; $("#per-cancelar-edicao").classList.add("oculto");
+}
+$("#per-cancelar-edicao").addEventListener("click", limparFormPerda);
+function editarPerda(x) {
+  abrirPerSub("registrar");
+  E.perdaEditando = x;
+  if (![...$("#per-produto").options].some((o) => o.value === x.produto_id)) $("#per-produto").insertAdjacentHTML("beforeend", `<option value="${x.produto_id}">${esc(x.produto)}</option>`);
+  if (![...$("#per-praca").options].some((o) => o.value === String(x.praca_id))) $("#per-praca").insertAdjacentHTML("beforeend", `<option value="${x.praca_id}">${esc(x.praca)}</option>`);
+  $("#per-produto").value = x.produto_id; $("#per-produto").dispatchEvent(new Event("change"));
+  $("#per-praca").value = String(x.praca_id); $("#per-qtd").value = numIn(x.quantidade);
+  $("#per-data").value = isoParaInput(x.data_hora); $("#per-motivo").value = x.motivo || ""; $("#per-obs").value = x.observacao || "";
+  $("#per-salvar").textContent = "Salvar alterações"; $("#per-cancelar-edicao").classList.remove("oculto");
+  $("#per-erro").textContent = x.status === "CONFIRMADA" ? "Editando uma perda confirmada: a saída gerada será ajustada junto." : "";
+  $(".per-form").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+const podeEditarPerda = (x) => x.status !== "CANCELADA" && (isGestor() || (x.status === "PENDENTE" && x.registrado_por === E.perfil.id));
+const acoesPerdaComuns = (x) => [
+  podeEditarPerda(x) ? `<button class="btn sec peq" data-perda="editar" data-id="${x.id}">Editar</button>` : "",
+  isGestor() && (x.status === "CONFIRMADA" || x.status === "RECUSADA") ? `<button class="btn sec peq" data-perda="desfazer" data-id="${x.id}">${x.status === "CONFIRMADA" ? "Desfazer confirmação" : "Desfazer recusa"}</button>` : "",
+  podeEditarPerda(x) ? `<button class="btn perigo peq" data-perda="cancelar" data-id="${x.id}">Cancelar</button>` : "",
+].join("");
+async function acaoPerda(acao, x, recarregar) {
+  if (acao === "editar") return editarPerda(x);
+  let r;
+  if (acao === "desfazer") {
+    if (!confirm(`Desfazer a ${x.status === "CONFIRMADA" ? "confirmação" : "recusa"} da perda de ${fmtQtd(x.quantidade)} ${x.unidade} de ${x.produto}?\n\nEla volta para "aguardando confirmação"${x.status === "CONFIRMADA" ? " e a saída gerada é excluída" : ""}.`)) return;
+    r = await sb.rpc("reabrir_perda", { p_id: x.id });
+  } else {
+    if (!confirm(`Cancelar a perda de ${fmtQtd(x.quantidade)} ${x.unidade} de ${x.produto}?${x.status === "CONFIRMADA" ? "\n\nEla já está confirmada: a saída gerada será excluída e o desvio volta a ficar sem justificativa." : ""}\n\nFica registrado na auditoria.`)) return;
+    r = await sb.rpc("cancelar_perda", { p_id: x.id });
+  }
+  if (r.error) return toast(msgErro(r.error));
+  toast(acao === "desfazer" ? "Feito: a perda voltou para aguardando confirmação." : "Perda cancelada.");
+  if (E.perdaEditando?.id === x.id) limparFormPerda();
+  recarregar();
+}
 
 async function carregarMinhasPerdas() {
   $("#per-lista-titulo").textContent = "Registros recentes";
@@ -2603,15 +2672,12 @@ async function carregarMinhasPerdas() {
     <td>${esc(x.motivo)}${x.observacao ? `<br><small class="dica">${esc(x.observacao)}</small>` : ""}</td>
     <td>${esc(x.registrado_por_nome)}</td>
     <td>${seloPerda(x.status)}${x.status === "RECUSADA" && x.motivo_recusa ? `<br><small class="dica">${esc(x.motivo_recusa)}</small>` : ""}</td>
-    <td>${x.status === "PENDENTE" && (x.registrado_por === E.perfil.id || isGestor()) ? `<button class="btn perigo peq" data-per-cancelar="${x.id}">Cancelar</button>` : ""}</td></tr>`).join("")
+    <td><div class="acoes">${acoesPerdaComuns(x)}</div></td></tr>`).join("")
     : `<tr><td colspan="8" class="vazio">Nenhuma perda registrada ainda.</td></tr>`;
 }
-$("#per-lista").addEventListener("click", async (ev) => {
-  const b = ev.target.closest("[data-per-cancelar]"); if (!b) return;
-  if (!confirm("Cancelar este registro de perda? Use quando foi lançado errado.")) return;
-  const { error } = await sb.rpc("cancelar_perda", { p_id: b.dataset.perCancelar });
-  if (error) return toast(msgErro(error));
-  toast("Registro cancelado."); carregarMinhasPerdas();
+$("#per-lista").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-perda]"); if (!b) return;
+  const x = E.perdasLista[b.dataset.id]; if (x) acaoPerda(b.dataset.perda, x, carregarMinhasPerdas);
 });
 
 ["#pc-status", "#pc-de", "#pc-ate", "#pc-praca"].forEach((s) => $(s).addEventListener("change", carregarConfirmacao));
@@ -2638,9 +2704,9 @@ async function carregarConfirmacao() {
     ${st !== "PENDENTE" ? `<div class="indicador"><span>Desvio justificado no filtro</span><strong>${fmtR(somaR(confirmadas))}</strong><small>${confirmadas.length} perdas confirmadas</small></div>
     <div class="indicador"><span>Praça com mais perda</span><strong style="font-size:20px">${topPraca ? esc(topPraca[0]) : "-"}</strong><small>${topPraca ? fmtR(topPraca[1]) : ""}</small></div>` : ""}`;
   $("#pc-lista").innerHTML = lista.length ? lista.map((x) => {
-    const acoes = x.status === "PENDENTE"
-      ? `<button class="btn peq" data-pc="confirmar" data-id="${x.id}">Confirmar</button><button class="btn perigo peq" data-pc="recusar" data-id="${x.id}">Recusar</button>`
-      : (x.status === "CONFIRMADA" || x.status === "RECUSADA") ? `<button class="btn sec peq" data-pc="reabrir" data-id="${x.id}">Reabrir</button>` : "";
+    const acoes = (x.status === "PENDENTE"
+      ? `<button class="btn peq" data-pc="confirmar" data-id="${x.id}">Confirmar</button><button class="btn perigo peq" data-pc="recusar" data-id="${x.id}">Recusar</button>` : "")
+      + acoesPerdaComuns(x).replace(/data-perda="/g, 'data-pc="');
     return `<tr><td>${fmtDataHora(x.data_hora)}</td><td>${esc(x.produto)}</td><td>${esc(x.praca)}</td>
       <td class="num">${fmtQtd(x.quantidade)} ${esc(x.unidade)}</td><td class="num">${fmtR(x.valor)}</td>
       <td>${esc(x.motivo)}${x.observacao ? `<br><small class="dica">${esc(x.observacao)}</small>` : ""}</td>
@@ -2661,6 +2727,7 @@ $("#pc-lista").addEventListener("click", async (ev) => {
   const b = ev.target.closest("[data-pc]"); if (!b) return;
   const x = E.pcLista.find((p) => p.id === b.dataset.id); if (!x) return;
   const desc = `${fmtQtd(x.quantidade)} ${x.unidade} de ${x.produto} (${x.praca})`;
+  if (["editar", "desfazer", "cancelar"].includes(b.dataset.pc)) return acaoPerda(b.dataset.pc, x, carregarConfirmacao);
   let r;
   if (b.dataset.pc === "confirmar") {
     if (!confirm(`Confirmar a perda de ${desc}?\n\nO produto sai da câmara da cozinha como "Perda (desvio justificado)". O desvio continua contando, agora justificado.`)) return;
