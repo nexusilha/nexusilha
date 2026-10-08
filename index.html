@@ -1050,7 +1050,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-08.2";
+const VERSAO = "2026-10-08.3";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -1624,7 +1624,8 @@ async function carregarRequisicoes() {
       <td><div class="acoes">
         <button class="btn sec peq" data-acao="imprimir" data-id="${r.id}">Imprimir</button>
         ${r.scan_path ? `<button class="btn sec peq" data-acao="ver" data-id="${r.id}">Ver scan</button>` : ""}
-        ${!isLider() && (!r.scan_path || isGestor()) ? `<button class="btn sec peq" data-acao="anexar" data-id="${r.id}">${r.scan_path ? "Trocar scan" : "Anexar scan"}</button>` : ""}
+        ${!isLider() && !r.scan_path ? `<button class="btn sec peq" data-acao="anexar" data-id="${r.id}">Anexar scan</button>` : ""}
+        ${isGestor() && r.scan_path ? `<button class="btn perigo peq" data-acao="remover-scan" data-id="${r.id}">Excluir scan</button>` : ""}
         ${isGestor() ? `<button class="btn sec peq" data-acao="editar" data-id="${r.id}">Editar</button>
           <button class="btn perigo peq" data-acao="excluir" data-id="${r.id}">Excluir</button>` : ""}
       </div></td></tr>`;
@@ -1637,7 +1638,7 @@ async function carregarRequisicoes() {
     (pend.length ? `<div class="aviso">${pend.length} ${pend.length === 1 ? "requisição está" : "requisições estão"} sem o scan assinado: ${pend.map((d) => esc(d.numero)).join(", ")}.</div>` : "");
 }
 
-$("#lista-req").addEventListener("click", (ev) => {
+$("#lista-req").addEventListener("click", async (ev) => {
   const b = ev.target.closest("button[data-acao]"); if (!b) return;
   const r = E.reqs.find((x) => x.id === b.dataset.id); if (!r) return;
   const a = b.dataset.acao;
@@ -1646,6 +1647,12 @@ $("#lista-req").addEventListener("click", (ev) => {
   if (a === "ver") verScan(r);
   if (a === "excluir") excluirRegistro("requisicoes", r.id, `${r.numero}? Os itens voltam para o estoque da câmara principal`, carregarRequisicoes);
   if (a === "editar") abrirNova(r);
+  if (a === "remover-scan") {
+    if (!confirm(`Excluir o scan da ${r.numero}?\n\nA requisição volta a ficar "Sem scan" e o estoquista pode anexar outro. Fica registrado na auditoria.`)) return;
+    const { error } = await sb.rpc("remover_scan", { p_requisicao: r.id });
+    if (error) return toast(msgErro(error));
+    toast(`Scan da ${r.numero} excluído. Já pode anexar outro.`); carregarRequisicoes();
+  }
   if (a === "autorizar") autorizarReq(r);
   if (a === "recusar") recusarReq(r);
 });
