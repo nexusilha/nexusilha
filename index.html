@@ -1050,7 +1050,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-08.1";
+const VERSAO = "2026-10-08.2";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -2367,7 +2367,7 @@ function linhaProduto(p) {
   return `<tr data-pid="${p.id || ""}">
     <td><input data-f="nome" value="${esc(p.nome)}" style="min-width:240px"></td>
     <td><input data-f="categoria" list="lista-categorias" value="${esc(p.categoria)}" style="min-width:200px"></td>
-    <td><select data-f="unidade">${["UND", "KG", "PCT"].map((u) => `<option ${u === p.unidade ? "selected" : ""}>${u}</option>`).join("")}</select></td>
+    <td><select data-f="unidade">${["UND", "KG", "PCT", "CX"].map((u) => `<option ${u === p.unidade ? "selected" : ""}>${u}</option>`).join("")}</select></td>
     <td class="num"><input class="mini" data-f="gramatura_g" type="text" inputmode="decimal" autocomplete="off" step="0.01" value="${numIn(p.gramatura_g)}"></td>
     <td><input data-f="critico" type="checkbox" ${p.critico ? "checked" : ""} style="width:auto"></td>
     <td class="num"><input class="mini" data-f="tolerancia_qtd" type="text" inputmode="decimal" autocomplete="off" step="0.01" min="0" value="${numIn(p.tolerancia_qtd)}"></td>
