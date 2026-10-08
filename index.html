@@ -311,6 +311,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
   .folha-cont th, .folha-cont td { padding: 4px 8px; }
   .folha-cont tr.grupo td { font-weight: 700; background: #E9E9E9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .folha-cont td.campo-cont { width: 32%; }
+  .folha-req td.campo-req { width: 20%; }
   .folha-cont tr { break-inside: avoid; }
   .folha-cont thead { display: table-header-group; }
   .linha-longa { display: inline-block; width: 220px; border-bottom: 1px solid #000; height: 1.1em; vertical-align: bottom; }
@@ -694,11 +695,12 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
       <div class="topo-secao">
         <h2>Requisições</h2>
         <input type="date" id="filtro-dia" aria-label="Filtrar por dia" style="width:auto">
-        <button class="btn" id="btn-nova">Nova requisição</button>
+        <button class="btn sec" id="btn-folha-req">Imprimir folha de requisição</button>
+        <button class="btn" id="btn-nova">Lançar requisição</button>
       </div>
       <div id="aviso-pendencias"></div>
       <div class="tabela-wrap"><table>
-        <thead><tr><th>Número</th><th>Data e hora</th><th>Responsável pela requisição</th><th>Itens</th><th>Situação</th><th></th></tr></thead>
+        <thead><tr><th>Número</th><th>Data e hora</th><th>Chef responsável</th><th>Itens</th><th>Situação</th><th></th></tr></thead>
         <tbody id="lista-req"></tbody>
       </table></div>
     </section>
@@ -983,7 +985,11 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
     <div class="modal-cab"><h2 id="req-titulo">Nova requisição</h2></div>
     <div class="modal-corpo">
       <div id="aviso-extra" class="aviso extra oculto">Já existe retirada hoje. Esta será uma <strong>retirada extra</strong> e precisa de justificativa.</div>
-      <div class="campo"><label for="req-resp">Responsável pela requisição</label><input id="req-resp" required autocomplete="off"></div>
+      <div class="per-grade" style="grid-template-columns:2fr 1fr">
+        <div class="campo"><label for="req-resp">Chef de cozinha responsável</label><input id="req-resp" required autocomplete="off" placeholder="Quem pediu e acompanhou a retirada"></div>
+        <div class="campo"><label for="req-data">Data e hora da retirada</label><input id="req-data" type="datetime-local" required></div>
+      </div>
+      <p class="dica" style="margin:0 0 12px">Lance exatamente o que foi retirado e conferido na câmara, conforme a folha preenchida pelo chef.</p>
       <label>Itens</label>
       <div id="req-itens"></div>
       <button type="button" class="btn sec peq" id="btn-add-item">Adicionar item</button>
@@ -995,8 +1001,23 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
     </div>
     <div class="modal-pe">
       <button type="button" class="btn sec" id="btn-cancelar">Cancelar</button>
-      <button type="submit" class="btn sec oculto" id="btn-salvar-autorizar" data-autorizar="1">Salvar e autorizar</button>
       <button type="submit" class="btn" id="btn-salvar-req">Salvar e imprimir</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="modal-folha">
+  <form id="form-folha" method="dialog">
+    <div class="modal-cab"><h2>Folha de requisição</h2></div>
+    <div class="modal-corpo">
+      <p class="dica" style="margin-top:0">Escolha as categorias que vão na folha. O chef escreve o que quer retirar, e o estoquista confere e anota o que foi retirado.</p>
+      <div class="acoes" style="margin-bottom:10px"><button type="button" class="btn sec peq" id="folha-todas">Marcar todas</button><button type="button" class="btn sec peq" id="folha-nenhuma">Desmarcar todas</button></div>
+      <div id="folha-cats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px"></div>
+      <div class="erro" id="folha-erro"></div>
+    </div>
+    <div class="modal-pe">
+      <button type="button" class="btn sec" id="folha-cancelar">Cancelar</button>
+      <button type="submit" class="btn">Imprimir folha</button>
     </div>
   </form>
 </dialog>
@@ -1029,7 +1050,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-07.2";
+const VERSAO = "2026-10-08.1";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -1228,6 +1249,8 @@ async function iniciar(user) {
     $("#usuario-avatar").textContent = perfil.nome.trim().split(/\s+/).slice(0, 2).map((x) => x[0]).join("").toUpperCase();
     $$("[data-gestor]").forEach((el) => el.classList.toggle("oculto", !isGestor()));
     document.body.classList.toggle("eh-gestor", isGestor());
+    $("#btn-nova").classList.toggle("oculto", isLider());
+    $("#btn-folha-req").classList.toggle("oculto", isLider());
     // Menu conforme o perfil: cada item só aparece se a página for permitida
     $$("#nav [data-aba]").forEach((b) => b.classList.toggle("oculto", !podeAbrir(b.dataset.aba)));
     $$("#nav .menu").forEach((m) => m.classList.toggle("oculto", !m.querySelector("[data-aba]:not(.oculto)")));
@@ -1335,7 +1358,7 @@ async function carregarPainel() {
   saudacao();
   const hoje = hojeSP(), de = addDias(hoje, -6), g = isGestor();
   const vazio = Promise.resolve({ data: [] });
-  const [extras, desv, pend, saldos, precos, trat, obs, perdasPend, reqAguard] = await Promise.all([
+  const [extras, desv, pend, saldos, precos, trat, obs, perdasPend] = await Promise.all([
     sb.from("v_requisicoes_dia").select("numero,dia,data_hora,justificativa_extra,comentario").gt("ordem_dia", 1).gte("dia", de).order("data_hora", { ascending: false }),
     g ? sb.from("v_desvios").select("nome,dia,desvio,desvio_valor,unidade").eq("local", "COZINHA").eq("fora_tolerancia", true).gte("dia", de).order("data_hora", { ascending: false }) : vazio,
     sb.from("v_pendencias_scan").select("numero"),
@@ -1344,10 +1367,7 @@ async function carregarPainel() {
     g ? sb.from("v_tratativas").select("item_id").neq("status", "CONCLUIDO") : vazio,
     g ? sb.from("v_observacao").select("*") : vazio,
     g ? sb.from("perdas").select("id", { count: "exact", head: true }).eq("status", "PENDENTE") : Promise.resolve({ count: 0 }),
-    sb.from("requisicoes").select("id", { count: "exact", head: true }).eq("status", "PENDENTE").is("excluido_em", null),
   ]);
-  const nReq = reqAguard.count || 0;
-  atualizarBadgeReq(nReq);
   const nPerdas = perdasPend.count || 0;
   atualizarBadgePerdas(nPerdas);
   const cob = g ? (await calcularCobertura()).filter((c) => c.alerta) : [];
@@ -1365,7 +1385,6 @@ async function carregarPainel() {
     <div class="indicador ${nObs ? "ruim" : ""}"><span>Itens em observação</span><strong>${nObs}</strong></div>
     <div class="indicador ${nPerdas ? "ruim" : ""}"><span>Perdas aguardando confirmação</span><strong>${nPerdas}</strong></div>` : "") + `
     <div class="indicador"><span>Retiradas extras (7 dias)</span><strong>${extras.data?.length || 0}</strong></div>
-    <div class="indicador ${nReq ? "ruim" : ""}"><span>Requisições aguardando autorização</span><strong>${nReq}</strong></div>
     <div class="indicador"><span>Requisições sem scan</span><strong>${pend.data?.length || 0}</strong></div>`;
 
   const bloco = (titulo, corpo, n) => `<div class="bloco"><h3><span>${titulo}</span>${n == null ? "" : `<span class="cont ${n ? "alerta" : ""}">${n}</span>`}</h3>${corpo}</div>`;
@@ -1594,31 +1613,25 @@ async function carregarRequisicoes() {
   E.reqs = reqs; E.itensPorReq = itensPorReq;
   $("#lista-req").innerHTML = reqs.length ? reqs.map((r) => {
     const itens = (itensPorReq[r.id] || []).map((i) => `<li>${fmtQtd(i.quantidade)} ${esc(i.produtos?.unidade)} ${esc(i.produtos?.nome)}</li>`).join("");
-    const aut = r.status === "AUTORIZADA";
     const selos = [
-      r.status === "PENDENTE" ? `<span class="selo pend">Aguardando autorização</span>` : "",
-      r.status === "RECUSADA" ? `<span class="selo ruim">Recusada</span>${r.motivo_recusa ? `<br><small class="dica">${esc(r.motivo_recusa)}</small>` : ""}` : "",
-      aut ? (r.scan_path ? `<span class="selo ok">Assinada</span>` : `<span class="selo pend">Sem scan</span>`) : "",
+      r.scan_path ? `<span class="selo ok">Assinada</span>` : `<span class="selo pend">Sem scan</span>`,
       r.ordem_dia > 1 ? `<span class="selo extra">Extra: ${esc(r.justificativa_extra || "")}</span>` : "",
       r.editada_pela_gestao ? `<span class="selo neutro">Editada pela gestão</span>` : "",
     ].filter(Boolean).join(" ");
-    const quem = [r.criado_por_nome ? `Pedida por ${esc(r.criado_por_nome)}` : "", aut && r.autorizado_por_nome ? `autorizada por ${esc(r.autorizado_por_nome)} em ${fmtDataHora(r.autorizado_em)}` : ""].filter(Boolean).join(", ");
-    return `<tr class="${r.status === "PENDENTE" ? "req-pendente" : ""}"><td class="numero-req">${esc(r.numero)}</td><td>${fmtDataHora(r.data_hora)}${quem ? `<br><small class="dica">${quem}</small>` : ""}</td><td>${esc(r.responsavel_retirada)}</td>
+    const quem = r.criado_por_nome ? `Lançada por ${esc(r.criado_por_nome)}` : "";
+    return `<tr><td class="numero-req">${esc(r.numero)}</td><td>${fmtDataHora(r.data_hora)}${quem ? `<br><small class="dica">${quem}</small>` : ""}</td><td>${esc(r.responsavel_retirada)}</td>
       <td><ul class="itens-lista">${itens}</ul></td><td>${selos}</td>
       <td><div class="acoes">
-        ${r.status === "PENDENTE" && isGestor() ? `<button class="btn peq" data-acao="autorizar" data-id="${r.id}">Autorizar</button>
-          <button class="btn sec peq" data-acao="editar" data-id="${r.id}">Editar</button>
-          <button class="btn perigo peq" data-acao="recusar" data-id="${r.id}">Recusar</button>` : ""}
-        ${aut ? `<button class="btn sec peq" data-acao="imprimir" data-id="${r.id}">Imprimir</button>` : ""}
-        ${aut && r.scan_path ? `<button class="btn sec peq" data-acao="ver" data-id="${r.id}">Ver scan</button>` : ""}
-        ${aut && (!r.scan_path || isGestor()) ? `<button class="btn sec peq" data-acao="anexar" data-id="${r.id}">${r.scan_path ? "Trocar scan" : "Anexar scan"}</button>` : ""}
-        ${isGestor() && r.status !== "PENDENTE" ? `<button class="btn perigo peq" data-acao="excluir" data-id="${r.id}">Excluir</button>` : ""}
+        <button class="btn sec peq" data-acao="imprimir" data-id="${r.id}">Imprimir</button>
+        ${r.scan_path ? `<button class="btn sec peq" data-acao="ver" data-id="${r.id}">Ver scan</button>` : ""}
+        ${!isLider() && (!r.scan_path || isGestor()) ? `<button class="btn sec peq" data-acao="anexar" data-id="${r.id}">${r.scan_path ? "Trocar scan" : "Anexar scan"}</button>` : ""}
+        ${isGestor() ? `<button class="btn sec peq" data-acao="editar" data-id="${r.id}">Editar</button>
+          <button class="btn perigo peq" data-acao="excluir" data-id="${r.id}">Excluir</button>` : ""}
       </div></td></tr>`;
   }).join("") : `<tr><td colspan="6" class="vazio">${dia ? "Nenhuma requisição neste dia." : "Nenhuma requisição ainda. Crie a primeira em “Nova requisição”."}</td></tr>`;
 
-  const [pend, aguard] = await Promise.all([q(sb.from("v_pendencias_scan").select("numero")),
-    q(sb.from("requisicoes").select("numero").eq("status", "PENDENTE").is("excluido_em", null).order("data_hora"))]);
-  atualizarBadgeReq(aguard.length);
+  const pend = await q(sb.from("v_pendencias_scan").select("numero"));
+  const aguard = [];
   $("#aviso-pendencias").innerHTML =
     (aguard.length ? `<div class="aviso">${aguard.length} ${aguard.length === 1 ? "requisição aguarda" : "requisições aguardam"} ${isGestor() ? "sua autorização" : "autorização da gestão"}: ${aguard.map((d) => esc(d.numero)).join(", ")}. O estoque só se movimenta depois de autorizada.</div>` : "") +
     (pend.length ? `<div class="aviso">${pend.length} ${pend.length === 1 ? "requisição está" : "requisições estão"} sem o scan assinado: ${pend.map((d) => esc(d.numero)).join(", ")}.</div>` : "");
@@ -1658,24 +1671,62 @@ async function recusarReq(r) {
 
 $("#btn-nova").addEventListener("click", abrirNova);
 $("#btn-cancelar").addEventListener("click", () => $("#modal-req").close());
+// Folha de requisição em branco, por categoria
+const FOLHA_KEY = "cmv-folha-cats";
+$("#btn-folha-req").addEventListener("click", () => {
+  let salvas = null; try { salvas = JSON.parse(localStorage.getItem(FOLHA_KEY) || "null"); } catch (_) {}
+  const cats = [...new Set(ordenarProdutos(E.produtos.filter((p) => p.ativo)).map((p) => p.categoria))];
+  $("#folha-cats").innerHTML = cats.map((c) => `<label class="chk" style="padding:4px 0"><input type="checkbox" value="${esc(c)}" ${!salvas || salvas.includes(c) ? "checked" : ""}> ${esc(c)} <small class="dica" style="margin:0">(${E.produtos.filter((p) => p.ativo && p.categoria === c).length})</small></label>`).join("");
+  $("#folha-erro").textContent = "";
+  $("#modal-folha").showModal();
+});
+$("#folha-cancelar").addEventListener("click", () => $("#modal-folha").close());
+$("#folha-todas").addEventListener("click", () => $$("#folha-cats input").forEach((i) => (i.checked = true)));
+$("#folha-nenhuma").addEventListener("click", () => $$("#folha-cats input").forEach((i) => (i.checked = false)));
+$("#form-folha").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const sel = $$("#folha-cats input:checked").map((i) => i.value);
+  if (!sel.length) return ($("#folha-erro").textContent = "Escolha ao menos uma categoria.");
+  try { localStorage.setItem(FOLHA_KEY, JSON.stringify(sel)); } catch (_) {}
+  const prods = ordenarProdutos(E.produtos.filter((p) => p.ativo && sel.includes(p.categoria)));
+  let cat = null;
+  const corpo = prods.map((p) => (p.categoria !== cat ? ((cat = p.categoria), `<tr class="grupo"><td colspan="4">${esc(cat)}</td></tr>`) : "") +
+    `<tr><td>${esc(p.nome)}</td><td>${esc(p.unidade)}</td><td class="campo-req"></td><td class="campo-req"></td></tr>`).join("");
+  $("#modal-folha").close();
+  const imp = $("#impressao");
+  imp.className = "folha-cont folha-req";
+  imp.innerHTML = `
+    <div class="imp-cab"><div><h1>Folha de requisição</h1><div>Câmara principal → câmara da cozinha<br>Ilha do Caranguejo</div></div>
+      <div class="imp-num" style="font-size:11pt;text-align:right">Nº no sistema<br><span class="linha-longa" style="width:150px"></span></div></div>
+    <div class="imp-dados">
+      <div><strong>Data:</strong> <span class="linha-hora"></span> / <span class="linha-hora"></span> / <span class="linha-hora"></span>
+        &nbsp;&nbsp; <strong>Horário da retirada:</strong> <span class="linha-hora"></span> : <span class="linha-hora"></span></div>
+      <div style="margin-top:10px"><strong>Chef de cozinha:</strong> <span class="linha-longa" style="width:300px"></span></div>
+      <div style="margin-top:6px;font-size:9.5pt">O chef preenche a quantidade solicitada. O estoquista confere na câmara e anota a quantidade realmente retirada, que é o que vai para o sistema.</div>
+    </div>
+    <table><thead><tr><th>Produto</th><th>Unidade</th><th>Qtd solicitada (chef)</th><th>Qtd retirada (estoquista)</th></tr></thead><tbody>${corpo}</tbody></table>
+    <div class="assinaturas"><div>CHEF DE COZINHA</div><div>GESTÃO / ESTOQUISTA</div></div>`;
+  setTimeout(() => window.print(), 50);
+});
 $("#btn-add-item").addEventListener("click", () => addItemLinha());
 
 async function abrirNova(edit) {
   if (edit && edit.type === "click") edit = null;
   E.reqEditando = edit || null;
   $("#form-req").reset(); $("#req-erro").textContent = ""; $("#req-itens").innerHTML = "";
-  $("#btn-salvar-autorizar").classList.toggle("oculto", !edit);
   if (edit) {
     $("#req-titulo").textContent = `Editar ${edit.numero}`;
     $("#btn-salvar-req").textContent = "Salvar alterações";
     $("#aviso-extra").classList.add("oculto"); $("#bloco-extra").classList.add("oculto"); $("#req-just").required = false;
     $("#req-resp").value = edit.responsavel_retirada || "";
+    $("#req-data").value = isoParaInput(edit.data_hora);
     (E.itensPorReq[edit.id] || []).forEach((i) => addItemLinha(i.produto_id, numIn(i.quantidade)));
     if (!(E.itensPorReq[edit.id] || []).length) addItemLinha();
     $("#modal-req").showModal(); return;
   }
-  $("#req-titulo").textContent = "Nova requisição";
-  $("#btn-salvar-req").textContent = isGestor() ? "Salvar e imprimir" : "Enviar para autorização";
+  $("#req-titulo").textContent = "Lançar requisição";
+  $("#btn-salvar-req").textContent = "Lançar e imprimir";
+  $("#req-data").value = agoraInput();
   const { count } = await sb.from("requisicoes").select("id", { count: "exact", head: true }).eq("dia", hojeSP()).is("excluido_em", null).neq("status", "RECUSADA");
   const extra = (count || 0) > 0;
   $("#aviso-extra").classList.toggle("oculto", !extra);
@@ -1710,12 +1761,11 @@ $("#form-req").addEventListener("submit", async (ev) => {
   if (new Set(ids).size !== ids.length) return ($("#req-erro").textContent = "Há produtos repetidos. Some as quantidades numa linha só.");
   if (!itens.length) return ($("#req-erro").textContent = "Inclua ao menos um item.");
   if (E.reqEditando) {
-    const r = E.reqEditando, autorizar = ev.submitter?.dataset.autorizar === "1";
-    const { error } = await sb.rpc("editar_requisicao", { p_id: r.id, p_itens: itens, p_responsavel: $("#req-resp").value });
+    const r = E.reqEditando;
+    const { error } = await sb.rpc("editar_requisicao", { p_id: r.id, p_itens: itens, p_responsavel: $("#req-resp").value, p_data_hora: inputParaISO($("#req-data").value) });
     if (error) return ($("#req-erro").textContent = msgErro(error));
     $("#modal-req").close();
     toast(`${r.numero} alterada.`);
-    if (autorizar) return autorizarReq(r, true);
     return carregarRequisicoes();
   }
   const btn = $("#btn-salvar-req"); btn.disabled = true;
@@ -1723,14 +1773,14 @@ $("#form-req").addEventListener("submit", async (ev) => {
     p_responsavel: $("#req-resp").value, p_itens: itens,
     p_justificativa: $("#req-just").value ? Number($("#req-just").value) : null,
     p_comentario: $("#req-coment").value || null,
+    p_data_hora: inputParaISO($("#req-data").value),
   });
   btn.disabled = false;
   if (error) return ($("#req-erro").textContent = msgErro(error));
   $("#modal-req").close();
-  if (data.status !== "AUTORIZADA") { toast(`${data.numero} enviada. Aguarda a autorização da gestão antes da retirada.`); return carregarRequisicoes(); }
-  toast(`Requisição ${data.numero} criada.`);
+  toast(`Requisição ${data.numero} lançada. Imprima, assine e leve para o chef assinar.`);
   const just = E.justificativas.find((j) => j.id === data.justificativa_extra_id);
-  imprimir({ ...data, justificativa_extra: just?.nome }, itens.map((i) => ({ quantidade: i.quantidade, produtos: E.produtos.find((p) => p.id === i.produto_id) })));
+  imprimir({ ...data, justificativa_extra: just?.nome, criado_por_nome: E.perfil.nome }, itens.map((i) => ({ quantidade: i.quantidade, produtos: E.produtos.find((p) => p.id === i.produto_id) })));
   carregarRequisicoes();
 });
 
@@ -1740,14 +1790,14 @@ function imprimir(r, itens) {
     <div class="imp-cab"><div><h1>Requisição de retirada</h1><div>Câmara principal → câmara da cozinha<br>Ilha do Caranguejo</div></div>
       <div class="imp-num">${esc(r.numero)}</div></div>
     <div class="imp-dados">
-      <div><strong>Data e hora:</strong> ${fmtDataHora(r.data_hora)}</div>
-      <div><strong>Responsável pela requisição:</strong> ${esc(r.responsavel_retirada)}</div>
-      <div class="imp-hora"><strong>Horário da retirada da mercadoria:</strong> <span class="linha-hora"></span> : <span class="linha-hora"></span></div>
+      <div><strong>Retirada lançada no sistema:</strong> ${fmtDataHora(r.data_hora)}${r.criado_por_nome ? ` por ${esc(r.criado_por_nome)}` : ""}</div>
+      <div><strong>Chef de cozinha responsável:</strong> ${esc(r.responsavel_retirada)}</div>
+      <div class="imp-hora"><strong>Horário da retirada (preenchido pelo estoquista):</strong> <span class="linha-hora"></span> : <span class="linha-hora"></span></div>
       ${r.justificativa_extra ? `<div><strong>Retirada extra:</strong> ${esc(r.justificativa_extra)}${r.comentario ? ` (${esc(r.comentario)})` : ""}</div>` : ""}
     </div>
     <table><thead><tr><th>Produto</th><th>Unidade</th><th class="num">Quantidade</th></tr></thead>
       <tbody>${itens.map((i) => `<tr><td>${esc(i.produtos?.nome)}</td><td>${esc(i.produtos?.unidade)}</td><td class="num">${fmtQtd(i.quantidade)}</td></tr>`).join("")}</tbody></table>
-    <div class="assinaturas"><div>GESTÃO</div><div>RESPONSÁVEL PELA REQUISIÇÃO</div></div>`;
+    <div class="assinaturas"><div>CHEF DE COZINHA</div><div>GESTÃO / ESTOQUISTA</div></div>`;
   setTimeout(() => window.print(), 50);
 }
 
