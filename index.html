@@ -582,7 +582,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
           <button class="btn sec peq" data-exp="perdas" data-fmt="xlsx">Excel</button>
           <button class="btn sec peq" data-exp="perdas" data-fmt="pdf">PDF</button>
         </div>
-        <p class="dica">Confirmar dá saída do produto da cozinha como "Perda (desvio justificado)". O desvio continua contando, mas passa a aparecer como justificado, com a praça e o motivo.</p>
+        <p class="dica">Confirmar não dá baixa no estoque. O desvio continua contando, mas passa a aparecer como justificado, com a praça e o motivo.</p>
         <div class="indicadores" id="pc-ind"></div>
         <div class="tabela-wrap"><table><thead><tr><th>Data e hora</th><th>Produto</th><th>Praça</th><th class="num">Qtd</th><th class="num">R$</th><th>Motivo</th><th>Registrado por</th><th>Situação</th><th></th></tr></thead><tbody id="pc-lista"></tbody></table></div>
         <div class="barra-acao" id="pc-barra"><span class="dica" style="margin:0" id="pc-resumo"></span><button class="btn" id="pc-confirmar-todas">Confirmar todas as pendentes listadas</button></div>
@@ -816,7 +816,8 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
         <div class="campo"><label for="sal-busca">Buscar produto</label><input id="sal-busca" placeholder="Nome"></div>
         <label class="chk"><input type="checkbox" id="so-criticos"> Só itens críticos</label>
       </div>
-      <p class="dica">Estoque atual = última contagem + movimentos depois dela.</p>
+      <p class="dica" id="sal-semana"></p>
+      <p class="dica">Câmara principal = última contagem + movimentos depois dela.</p>
       <div id="lista-saldos"></div>
     </section>
 
@@ -1061,7 +1062,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-09.1";
+const VERSAO = "2026-10-09.2";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -2260,20 +2261,22 @@ function renderSaldos() {
   if ($("#so-criticos").checked) prods = prods.filter((p) => p.critico);
   if (t) prods = prods.filter((p) => p.nome.toLowerCase().includes(t));
   const ult = (s) => s?.ultima_contagem ? fmtDataHora(s.ultima_contagem) : "nunca";
+  const hj = hojeSP(), seg = addDias(hj, -((new Date(hj + "T12:00:00Z").getUTCDay() + 6) % 7));
   const linha = (rot, s, un) => `<div class="saldo-linha"><span>${rot}</span><span class="saldo-valor ${Number(s?.saldo) < 0 ? "neg" : ""}">${fmtQtd(s?.saldo ?? 0)}<small style="font-size:14px;font-weight:500"> ${esc(un)}</small></span></div>`;
   let html = "", cat = null;
   ordenarProdutos(prods).forEach((p) => {
     if (p.categoria !== cat) { if (cat !== null) html += `</div>`; cat = p.categoria; html += `<div class="cat-titulo">${esc(cat)}</div><div class="saldos">`; }
     const s = porProd[p.id];
     html += `<article class="saldo-card ${p.critico ? "critico" : ""}"><h4>${esc(p.nome)}</h4>
-      ${linha("Câmara principal", s.PRINCIPAL, p.unidade)}${linha("Cozinha", s.COZINHA, p.unidade)}
-      <div class="saldo-rodape">Última contagem: principal ${ult(s.PRINCIPAL)}; cozinha ${ult(s.COZINHA)}</div></article>`;
+      ${linha("Câmara principal", s.PRINCIPAL, p.unidade)}${linha("Cozinha na semana", s.COZINHA, p.unidade)}
+      <div class="saldo-rodape">Última contagem da câmara principal: ${ult(s.PRINCIPAL)}</div></article>`;
   });
+  $("#sal-semana").textContent = `"Cozinha na semana" é o total retirado para a cozinha desde segunda-feira (${fmtData(seg)}). Zera toda segunda.`;
   $("#lista-saldos").innerHTML = html ? html + "</div>" : `<div class="vazio">Nenhum produto encontrado.</div>`;
   E.exp.saldos = {
     titulo: "Estoque atual", arquivo: "estoque", subtitulo: fmtDataHora(new Date().toISOString()),
     colunas: [{ k: "categoria", rotulo: "Categoria" }, { k: "nome", rotulo: "Produto" }, { k: "unidade", rotulo: "Un." },
-      { k: "principal", rotulo: "Câmara principal", num: true }, { k: "cozinha", rotulo: "Cozinha", num: true }],
+      { k: "principal", rotulo: "Câmara principal", num: true }, { k: "cozinha", rotulo: "Cozinha na semana", num: true }],
     linhas: ordenarProdutos(prods).map((p) => ({ categoria: p.categoria, nome: p.nome, unidade: p.unidade,
       principal: Number(porProd[p.id].PRINCIPAL?.saldo ?? 0), cozinha: Number(porProd[p.id].COZINHA?.saldo ?? 0) })),
   };
