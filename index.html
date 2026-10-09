@@ -665,8 +665,8 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
         <div class="ri-duas">
           <div><h3>Onde foi percebido</h3>
             <div class="tabela-wrap"><table><thead><tr><th>Ocasião</th><th class="num">RNCs</th></tr></thead><tbody id="ri-oc"></tbody></table></div></div>
-          <div><h3>Retorno do CD/CP</h3>
-            <div class="tabela-wrap"><table><thead><tr><th>Retorno</th><th class="num">RNCs</th></tr></thead><tbody id="ri-ret"></tbody></table></div></div>
+          <div><h3>Devolutiva do CD/CP</h3>
+            <div class="tabela-wrap"><table><thead><tr><th>Resultado</th><th class="num">RNCs</th></tr></thead><tbody id="ri-ret"></tbody></table></div></div>
         </div>
       </div>
     </section>
@@ -1143,15 +1143,21 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
 
 <dialog id="modal-rnc-ret" class="dlg-peq">
   <form id="form-rnc-ret" method="dialog">
-    <div class="modal-cab"><h2 id="rnc-ret-titulo">Retorno do CD/CP</h2></div>
+    <div class="modal-cab"><h2 id="rnc-ret-titulo">Devolutiva</h2></div>
     <div class="modal-corpo">
-      <div class="campo"><label for="rnc-ret-tipo">Retorno</label><select id="rnc-ret-tipo" required></select></div>
-      <div class="campo"><label for="rnc-ret-obs">Observação (opcional)</label><textarea id="rnc-ret-obs" placeholder="Ex.: crédito na próxima NF, reposição na entrega de quarta"></textarea></div>
+      <p class="dica" style="margin-top:0">Registre o que o CD/CP respondeu no WhatsApp. É essa devolutiva que os chefs veem na solicitação deles.</p>
+      <div class="grade-req">
+        <div class="campo"><label for="rnc-ret-tipo">Resultado</label><select id="rnc-ret-tipo" required></select></div>
+        <div class="campo"><label for="rnc-ret-data">Data da devolutiva</label><input id="rnc-ret-data" type="datetime-local" required></div>
+      </div>
+      <div class="campo"><label for="rnc-ret-obs">Devolutiva</label><textarea id="rnc-ret-obs" rows="4" required placeholder="Ex.: CD reconheceu a falha na cadeia de frio, vai creditar 4 UND na próxima NF e reforçar a conferência de temperatura na expedição."></textarea></div>
+      <div class="campo"><label for="rnc-ret-print">Print da conversa (opcional)</label><input id="rnc-ret-print" type="file" accept="image/*,application/pdf">
+        <small class="dica" id="rnc-ret-print-atual"></small></div>
       <div class="erro" id="rnc-ret-erro"></div>
     </div>
     <div class="modal-pe">
       <button type="button" class="btn sec" id="rnc-ret-cancelar">Cancelar</button>
-      <button type="submit" class="btn">Encerrar RNC</button>
+      <button type="submit" class="btn" id="rnc-ret-salvar">Salvar devolutiva</button>
     </div>
   </form>
 </dialog>
@@ -1201,7 +1207,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-09.3";
+const VERSAO = "2026-10-09.4";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -3012,9 +3018,9 @@ const PROBLEMAS_RNC = ["Temperatura inadequada", "Descongelado ou recongelado", 
 const NOME_OCASIAO = { COZINHA: "Na cozinha", RECEBIMENTO: "No recebimento", ARMAZENAGEM: "Na armazenagem (câmara ou estoque)", OUTRA: "Outra situação" };
 const NOME_ST_SOL = { PENDENTE: "Aguardando análise", EM_ANALISE: "Em análise", RNC_ABERTA: "RNC aberta", RECUSADA: "Recusada", CANCELADA: "Cancelada" };
 const CLS_ST_SOL = { PENDENTE: "pend", EM_ANALISE: "obs", RNC_ABERTA: "ok", RECUSADA: "ruim", CANCELADA: "neutro" };
-const NOME_ST_RNC = { ABERTA: "Aberta: assinar e enviar", ENVIADA: "Enviada: aguardando retorno", ENCERRADA: "Encerrada" };
+const NOME_ST_RNC = { ABERTA: "Aberta: assinar e enviar", ENVIADA: "Enviada: aguardando devolutiva", ENCERRADA: "Encerrada" };
 const CLS_ST_RNC = { ABERTA: "pend", ENVIADA: "obs", ENCERRADA: "ok" };
-const NOME_RETORNO = { CREDITO: "Crédito ou abatimento", REPOSICAO: "Reposição do produto", IMPROCEDENTE: "Improcedente", SEM_RETORNO: "Sem retorno" };
+const NOME_RETORNO = { CREDITO: "Crédito ou abatimento", REPOSICAO: "Reposição do produto", IMPROCEDENTE: "Improcedente", SEM_RETORNO: "Sem retorno do CD/CP" };
 const produtosRnc = () => E.produtos.filter((p) => E.catOrigem?.[p.categoria]);
 const origemDe = (p) => E.catOrigem?.[p?.categoria] || "";
 const opcoesLista = (obj, vazio) => (vazio ? `<option value="">${vazio}</option>` : "") + Object.entries(obj).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
@@ -3128,7 +3134,7 @@ async function carregarMinhasSolRnc() {
     <td class="num">${fmtQtd(x.quantidade)} ${esc(x.unidade)}</td>
     <td>${esc(x.problema)}${x.descricao ? `<br><small class="dica">${esc(x.descricao)}</small>` : ""}</td>
     <td>${esc(x.solicitado_por_nome)}</td>
-    <td>${seloSol(x.status)}${x.rnc_numero ? `<br><small class="dica">${esc(x.rnc_numero)}</small>` : ""}${x.motivo_recusa ? `<br><small class="dica">${esc(x.motivo_recusa)}</small>` : ""}</td>
+    <td>${seloSol(x.status)}${x.rnc_numero ? `<br><small class="dica">${esc(x.rnc_numero)}</small>` : ""}${x.motivo_recusa ? `<br><small class="dica">${esc(x.motivo_recusa)}</small>` : ""}${x.rnc_retorno ? `<br><small class="dica"><strong>Devolutiva: ${esc(NOME_RETORNO[x.rnc_retorno])}</strong>. ${esc(x.rnc_devolutiva || "")}</small>` : x.rnc_numero ? `<br><small class="dica">Aguardando devolutiva do CD/CP</small>` : ""}</td>
     <td><div class="acoes">${x.status === "PENDENTE" && (x.solicitado_por === E.perfil.id || isGestor()) ? `<button class="btn perigo peq" data-rs="cancelar" data-id="${x.id}">Cancelar</button>` : ""}</div></td></tr>`).join("")
     : `<tr><td colspan="8" class="vazio">Nenhuma solicitação ainda.</td></tr>`;
 }
@@ -3314,7 +3320,9 @@ async function carregarRncs() {
       r.scan_path ? `<button class="btn sec peq" data-rl="ver-scan" data-id="${r.id}">Ver scan</button>` : `<button class="btn sec peq" data-rl="scan" data-id="${r.id}">Anexar scan</button>`,
       r.scan_path ? `<button class="btn sec peq" data-rl="enviar" data-id="${r.id}">Enviar scan</button>` : "",
       r.status === "ABERTA" ? `<button class="btn sec peq" data-rl="marcar" data-id="${r.id}">Marcar como enviada</button>` : "",
-      r.status !== "ENCERRADA" ? `<button class="btn sec peq" data-rl="retorno" data-id="${r.id}">Registrar retorno</button>` : `<button class="btn sec peq" data-rl="reabrir" data-id="${r.id}">Reabrir</button>`,
+      `<button class="btn ${r.status === "ENCERRADA" ? "sec" : ""} peq" data-rl="retorno" data-id="${r.id}">${r.retorno ? "Editar devolutiva" : "Registrar devolutiva"}</button>`,
+      r.retorno_anexo_path ? `<button class="btn sec peq" data-rl="ver-print" data-id="${r.id}">Ver print</button>` : "",
+      r.status === "ENCERRADA" ? `<button class="btn sec peq" data-rl="reabrir" data-id="${r.id}">Reabrir</button>` : "",
       `<button class="btn sec peq" data-rl="editar" data-id="${r.id}">Editar</button>`,
       r.scan_path ? `<button class="btn perigo peq" data-rl="tirar-scan" data-id="${r.id}">Excluir scan</button>` : "",
       `<button class="btn perigo peq" data-rl="excluir" data-id="${r.id}">Excluir</button>`,
@@ -3324,16 +3332,16 @@ async function carregarRncs() {
       <td>${esc(r.destino === "CD/CP" ? "CD e CP" : r.destino)}</td>
       <td>${its.map((i) => `${fmtQtd(i.quantidade)} ${esc(i.unidade)} ${esc(i.produto)} <small class="dica">(${esc(i.problema)})</small>`).join("<br>")}</td>
       <td>${esc(NOME_OCASIAO[r.ocasiao])}</td>
-      <td>${seloRnc(r.status)}${r.retorno ? `<br><small class="dica">${esc(NOME_RETORNO[r.retorno])}${r.retorno_obs ? `: ${esc(r.retorno_obs)}` : ""}</small>` : ""}${!r.scan_path ? `<br><small class="dica">Sem scan</small>` : ""}</td>
+      <td>${seloRnc(r.status)}${r.retorno ? `<br><small class="dica"><strong>${esc(NOME_RETORNO[r.retorno])}</strong>${r.retorno_em ? ` (${fmtDataHora(r.retorno_em)})` : ""}: ${esc(r.retorno_obs || "")}</small>` : ""}${!r.scan_path ? `<br><small class="dica">Sem scan</small>` : ""}</td>
       <td><div class="acoes">${acoes}</div></td></tr>`;
   }).join("") : `<tr><td colspan="7" class="vazio">Nenhuma RNC neste filtro.</td></tr>`;
   E.exp.rncs = { titulo: "RNCs", arquivo: "rnc", subtitulo: st ? NOME_ST_RNC[st] : `${fmtData(de)} a ${fmtData(ate)}`,
     colunas: [{ k: "numero", rotulo: "RNC" }, { k: "data", rotulo: "Ocorrência" }, { k: "destino", rotulo: "Destino" }, { k: "ocasiao", rotulo: "Onde" },
       { k: "produto", rotulo: "Produto" }, { k: "quantidade", rotulo: "Qtd", num: true }, { k: "unidade", rotulo: "Un." }, { k: "problema", rotulo: "Problema" },
-      { k: "valor", rotulo: "R$", num: true }, { k: "chef", rotulo: "Chef do turno" }, { k: "situacao", rotulo: "Situação" }, { k: "retorno", rotulo: "Retorno" }],
+      { k: "valor", rotulo: "R$", num: true }, { k: "chef", rotulo: "Chef do turno" }, { k: "situacao", rotulo: "Situação" }, { k: "retorno", rotulo: "Devolutiva" }, { k: "devolutiva", rotulo: "Texto da devolutiva" }],
     linhas: lista.flatMap((r) => (porRnc[r.id] || []).map((i) => ({ numero: r.numero, data: fmtDataHora(r.data_ocorrencia), destino: r.destino, ocasiao: NOME_OCASIAO[r.ocasiao],
       produto: i.produto, quantidade: Number(i.quantidade), unidade: i.unidade, problema: i.problema, valor: i.valor == null ? "" : Number(i.valor), chef: r.chef_turno,
-      situacao: NOME_ST_RNC[r.status], retorno: r.retorno ? NOME_RETORNO[r.retorno] : "" }))) };
+      situacao: NOME_ST_RNC[r.status], retorno: r.retorno ? NOME_RETORNO[r.retorno] : "", devolutiva: r.retorno_obs || "" }))) };
 }
 $("#rl-lista").addEventListener("click", async (ev) => {
   const b = ev.target.closest("[data-rl]"); if (!b) return;
@@ -3344,10 +3352,18 @@ $("#rl-lista").addEventListener("click", async (ev) => {
   if (a === "scan") { E.rncScanAlvo = r; $("#rnc-scan-in").value = ""; return $("#rnc-scan-in").click(); }
   if (a === "editar") return abrirFormRnc(r);
   if (a === "enviar") return enviarScanRnc(r);
-  if (a === "retorno") { E.rncRet = r; $("#form-rnc-ret").reset(); $("#rnc-ret-erro").textContent = ""; $("#rnc-ret-titulo").textContent = `Retorno do ${r.destino === "CD/CP" ? "CD/CP" : r.destino}: ${r.numero}`; return $("#modal-rnc-ret").showModal(); }
+  if (a === "ver-print") return abrirArquivoRnc(r.retorno_anexo_path);
+  if (a === "retorno") {
+    E.rncRet = r; $("#form-rnc-ret").reset(); $("#rnc-ret-erro").textContent = "";
+    $("#rnc-ret-titulo").textContent = `Devolutiva do ${r.destino === "CD/CP" ? "CD/CP" : r.destino}: ${r.numero}`;
+    $("#rnc-ret-tipo").value = r.retorno || ""; $("#rnc-ret-obs").value = r.retorno_obs || "";
+    $("#rnc-ret-data").value = r.retorno_em ? isoParaInput(r.retorno_em) : agoraInput();
+    $("#rnc-ret-print-atual").textContent = r.retorno_anexo_path ? "Já tem um print anexado. Escolha outro só se quiser substituir." : "";
+    return $("#modal-rnc-ret").showModal();
+  }
   let args;
   if (a === "marcar") { if (!confirm(`Marcar a ${r.numero} como enviada ao ${r.destino}?`)) return; args = { p_acao: "enviar" }; }
-  if (a === "reabrir") { if (!confirm(`Reabrir a ${r.numero}? O retorno registrado é apagado.`)) return; args = { p_acao: "reabrir" }; }
+  if (a === "reabrir") { if (!confirm(`Reabrir a ${r.numero}? A devolutiva registrada é apagada.`)) return; args = { p_acao: "reabrir" }; }
   if (a === "tirar-scan") { if (!confirm(`Excluir o scan da ${r.numero}? Depois é só anexar outro.`)) return; args = { p_acao: "scan", p_valor: null }; }
   if (a === "excluir") {
     const motivo = prompt(`Excluir a ${r.numero}?${r.solicitacao_numero ? `\n\nA solicitação ${r.solicitacao_numero} volta para "em análise".` : ""}\n\nMotivo da exclusão:`);
@@ -3384,10 +3400,17 @@ async function enviarScanRnc(r) {
 }
 $("#form-rnc-ret").addEventListener("submit", async (ev) => {
   ev.preventDefault();
-  const r = E.rncRet;
-  const { error } = await sb.rpc("atualizar_rnc", { p_id: r.id, p_acao: "encerrar", p_valor: $("#rnc-ret-tipo").value, p_obs: $("#rnc-ret-obs").value });
-  if (error) return ($("#rnc-ret-erro").textContent = msgErro(error));
-  $("#modal-rnc-ret").close(); toast(`${r.numero} encerrada.`); carregarRncs();
+  const r = E.rncRet, btn = $("#rnc-ret-salvar");
+  btn.disabled = true;
+  try {
+    const f = $("#rnc-ret-print").files[0];
+    const anexo = f ? await enviarArquivoRnc(`devolutiva/${r.numero}`, f) : null;
+    const { error } = await sb.rpc("registrar_devolutiva_rnc", { p_id: r.id, p_retorno: $("#rnc-ret-tipo").value, p_texto: $("#rnc-ret-obs").value,
+      p_data: inputParaISO($("#rnc-ret-data").value), p_anexo: anexo });
+    if (error) throw error;
+    $("#modal-rnc-ret").close(); toast(`Devolutiva da ${r.numero} registrada. A RNC foi encerrada.`); carregarRncs();
+  } catch (e) { $("#rnc-ret-erro").textContent = msgErro(e); }
+  finally { btn.disabled = false; }
 });
 $("#rnc-ret-cancelar").addEventListener("click", () => $("#modal-rnc-ret").close());
 
@@ -3454,7 +3477,7 @@ async function gerarPdfRnc(r, itens, fotos) {
   doc.setTextColor(255); doc.setFont("helvetica", "bold"); doc.setFontSize(15);
   doc.text("RELATÓRIO DE NÃO CONFORMIDADE", M, 12);
   doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
-  doc.text("Ilha do Caranguejo - Grupo Ilha", M, 19);
+  doc.text("Ilha do Caranguejo - VIX", M, 19);
   doc.setFont("helvetica", "bold"); doc.setFontSize(15);
   doc.text(r.numero, W - M, 12, { align: "right" });
   doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
@@ -3463,7 +3486,7 @@ async function gerarPdfRnc(r, itens, fotos) {
   const info = [
     ["Data e hora da ocorrência", fmtDataHora(r.data_ocorrencia), "Onde foi percebido", NOME_OCASIAO[r.ocasiao]],
     ["Chef responsável pelo turno", r.chef_turno, "NF", r.nf || "-"],
-    ["Aberta por", `${r.criado_por_nome || ""} em ${fmtDataHora(r.created_at)}`, "Solicitação", r.solicitacao_numero ? `${r.solicitacao_numero} (${r.solicitado_por_nome || ""})` : "-"],
+    ["Aberta por", r.criado_por_nome || "", "Solicitação", r.solicitacao_numero ? `${r.solicitacao_numero} (${r.solicitado_por_nome || ""})` : "-"],
   ];
   doc.autoTable({ startY: 32, body: info, theme: "grid", margin: { left: M, right: M },
     styles: { fontSize: 9, cellPadding: 2.2, lineColor: [205, 214, 219], textColor: [20, 35, 43] },
@@ -3485,18 +3508,16 @@ async function gerarPdfRnc(r, itens, fotos) {
   };
   bloco("Descrição da ocorrência", r.descricao);
   bloco("O que foi feito com o produto", r.acao_imediata || "-");
-  // Parecer do CD/CP e assinaturas
-  novaPag(78);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.text(`Parecer do ${destino} (preenchido por quem recebe a RNC)`, M, y); y += 3;
-  doc.setDrawColor(150); doc.rect(M, y, CW, 26); y += 38;
+  if (r.retorno) bloco(`Devolutiva do ${destino} (${NOME_RETORNO[r.retorno]}${r.retorno_em ? `, ${fmtDataHora(r.retorno_em)}` : ""})`, r.retorno_obs || "-");
+  // Assinaturas
+  novaPag(40); y += 16;
   const lx = [M, M + CW / 2 + 6], lw = CW / 2 - 6;
   doc.setDrawColor(60);
   lx.forEach((x) => doc.line(x, y, x + lw, y));
   doc.setFont("helvetica", "bold"); doc.setFontSize(9.5);
-  doc.text("GESTÃO", lx[0] + lw / 2, y + 5, { align: "center" });
-  doc.text("CHEF DE COZINHA RESPONSÁVEL PELO TURNO", lx[1] + lw / 2, y + 5, { align: "center" });
+  doc.text("RESPONSÁVEL", lx[0] + lw / 2, y + 5, { align: "center" });
+  doc.text("CHEF DE COZINHA", lx[1] + lw / 2, y + 5, { align: "center" });
   doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
-  doc.text(r.criado_por_nome || "", lx[0] + lw / 2, y + 9.5, { align: "center" });
   doc.text(r.chef_turno || "", lx[1] + lw / 2, y + 9.5, { align: "center" });
   doc.text("Data: ____/____/________", lx[0] + lw / 2, y + 15, { align: "center" });
   doc.text("Data: ____/____/________", lx[1] + lw / 2, y + 15, { align: "center" });
@@ -3552,7 +3573,7 @@ async function carregarIndRnc() {
   $("#ri-cards").innerHTML = `
     <div class="indicador"><span>RNCs abertas</span><strong>${rncs.length}</strong><small>CD ${nCD} | CP ${nCP}</small></div>
     <div class="indicador ${valor > 0 ? "ruim" : ""}"><span>Valor envolvido</span><strong>${fmtR(valor)}</strong><small>${semPreco ? `${semPreco} itens sem preço` : "pelo preço cadastrado"}</small></div>
-    <div class="indicador ${aguard ? "ruim" : "bom"}"><span>Aguardando retorno</span><strong>${aguard}</strong><small>abertas ou enviadas, sem retorno</small></div>
+    <div class="indicador ${aguard ? "ruim" : "bom"}"><span>Aguardando devolutiva</span><strong>${aguard}</strong><small>abertas ou enviadas</small></div>
     <div class="indicador"><span>Solicitações recebidas</span><strong>${solsF.length}</strong><small>${pendentes} aguardando análise</small></div>
     <div class="indicador"><span>Viraram RNC</span><strong>${resolvidas.length ? fmtPct(viraram / resolvidas.length * 100) : "-"}</strong><small>${viraram} de ${resolvidas.length} analisadas</small></div>
     <div class="indicador"><span>Tempo de resposta</span><strong>${fmtH(tMed)}</strong><small>média da solicitação até a análise</small></div>`;
