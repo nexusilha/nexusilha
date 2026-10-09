@@ -152,7 +152,17 @@ input.sugerido { background: #FBF3E6; border-color: var(--ambar); }
 .per-form { background: var(--papel); border: 1px solid var(--linha); border-radius: 6px; padding: 16px; max-width: 720px; margin-bottom: 24px; }
 .per-grade { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 .grade-req { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
-@media (max-width: 640px) { .per-grade, .grade-req { grid-template-columns: 1fr; } }
+.rnc-item { display: grid; grid-template-columns: 1fr 96px 1fr 40px; gap: 8px; padding: 10px; border: 1px solid var(--linha); border-radius: 6px; margin-bottom: 8px; }
+.rnc-item button { border: 1px solid var(--linha); background: var(--papel); border-radius: 4px; cursor: pointer; }
+.rnc-item .sugestao { grid-column: 1 / -1; margin: 0; }
+.rnc-fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 8px; }
+.rnc-foto { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; background: var(--linha-2); }
+.rnc-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rnc-foto button { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border: 0; border-radius: 50%; background: rgba(20,35,43,.75); color: #fff; cursor: pointer; }
+.ri-duas { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 640px) { .per-grade, .grade-req, .ri-duas { grid-template-columns: 1fr; }
+  .rnc-item { grid-template-columns: 1fr 40px; } .rnc-item .rnc-prod { grid-column: 1 / -1; grid-row: 1; }
+  .rnc-item .rnc-prob { grid-column: 1 / -1; grid-row: 2; } .rnc-item input { grid-row: 3; } .rnc-item button { grid-row: 3; grid-column: 2; } }
 .per-un { font-size: 13px; color: var(--tinta-2); margin-top: 4px; min-height: 18px; }
 .sc-form { background: var(--papel); border: 1px solid var(--linha); border-radius: 6px; padding: 16px; margin-bottom: 24px; }
 .sc-form .tabela-wrap { margin-bottom: 12px; }
@@ -461,6 +471,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
           <button data-aba="processos" data-lider>Processos</button>
         </div>
       </div>
+      <button class="nav-item" data-aba="rnc">RNC <span id="nav-rnc-badge"></span></button>
       <div class="menu" data-gestor>
         <button class="nav-item" data-menu aria-haspopup="true">Controle <span class="seta">▾</span></button>
         <div class="menu-lista">
@@ -586,6 +597,77 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
         <div class="indicadores" id="pc-ind"></div>
         <div class="tabela-wrap"><table><thead><tr><th>Data e hora</th><th>Produto</th><th>Praça</th><th class="num">Qtd</th><th class="num">R$</th><th>Motivo</th><th>Registrado por</th><th>Situação</th><th></th></tr></thead><tbody id="pc-lista"></tbody></table></div>
         <div class="barra-acao" id="pc-barra"><span class="dica" style="margin:0" id="pc-resumo"></span><button class="btn" id="pc-confirmar-todas">Confirmar todas as pendentes listadas</button></div>
+      </div>
+    </section>
+
+    <!-- RNC -->
+    <section id="aba-rnc" class="oculto">
+      <div class="topo-secao"><h2>RNC</h2><button class="btn" id="rnc-nova" data-gestor>Abrir RNC</button></div>
+      <p class="ola oculto" id="rnc-ola"></p>
+      <div class="subnav" id="rnc-nav">
+        <button data-rsub="solicitar" aria-selected="true">Solicitar RNC</button>
+        <button data-rsub="solicitacoes" data-gestor>Solicitações <span id="rnc-badge"></span></button>
+        <button data-rsub="lista" data-gestor>RNCs</button>
+        <button data-rsub="indicadores" data-gestor>Indicadores</button>
+      </div>
+
+      <div id="rnc-solicitar">
+        <p class="dica">Achou um produto do CD ou da CP com problema? Separe o produto e solicite a RNC aqui. A gestão confere o produto e abre a RNC para o CD ou a CP.</p>
+        <div class="per-form">
+          <div class="campo"><label for="rs-produto">Produto (só CD e CP)</label><select id="rs-produto"></select><div class="per-un" id="rs-un"></div></div>
+          <div class="per-grade">
+            <div class="campo"><label for="rs-qtd">Quantidade com problema</label><input id="rs-qtd" type="text" inputmode="decimal" autocomplete="off"></div>
+            <div class="campo"><label for="rs-problema">Problema</label><select id="rs-problema"></select></div>
+            <div class="campo"><label for="rs-ocasiao">Onde foi percebido</label><select id="rs-ocasiao"></select></div>
+          </div>
+          <div class="campo"><label for="rs-desc">O que você viu</label><textarea id="rs-desc" placeholder="Ex.: pacote chegou com gelo por dentro, cheiro forte, peso abaixo da etiqueta"></textarea></div>
+          <div class="campo"><label for="rs-foto">Foto (opcional)</label><input id="rs-foto" type="file" accept="image/*">
+            <div class="rnc-fotos" id="rs-foto-prev"></div></div>
+          <div class="erro" id="rs-erro"></div>
+          <div class="acoes"><button class="btn" id="rs-enviar">Solicitar RNC</button></div>
+        </div>
+        <h3>Solicitações recentes</h3>
+        <div class="tabela-wrap"><table><thead><tr><th>Nº</th><th>Data e hora</th><th>Produto</th><th class="num">Qtd</th><th>Problema</th><th>Solicitado por</th><th>Situação</th><th></th></tr></thead><tbody id="rs-lista"></tbody></table></div>
+      </div>
+
+      <div id="rnc-solicitacoes" class="oculto">
+        <div class="filtros">
+          <div class="campo"><label for="rsg-status">Situação</label>
+            <select id="rsg-status"><option value="ABERTAS">Aguardando ou em análise</option><option value="RNC_ABERTA">Viraram RNC</option><option value="RECUSADA">Recusadas</option><option value="CANCELADA">Canceladas</option><option value="">Todas</option></select></div>
+        </div>
+        <div class="tabela-wrap"><table><thead><tr><th>Nº</th><th>Solicitada em</th><th>Produto</th><th class="num">Qtd</th><th>Problema</th><th>Foto</th><th>Solicitado por</th><th>Situação</th><th></th></tr></thead><tbody id="rsg-lista"></tbody></table></div>
+      </div>
+
+      <div id="rnc-lista" class="oculto">
+        <div class="filtros">
+          <div class="campo"><label for="rl-status">Situação</label>
+            <select id="rl-status"><option value="">Todas</option><option value="ABERTA">Abertas (assinar e enviar)</option><option value="ENVIADA">Enviadas (aguardando retorno)</option><option value="ENCERRADA">Encerradas</option></select></div>
+          <div class="campo"><label for="rl-destino">Destino</label><select id="rl-destino"><option value="">CD e CP</option><option value="CD">CD</option><option value="CP">CP</option></select></div>
+          <div class="campo"><label for="rl-de">De</label><input type="date" id="rl-de"></div>
+          <div class="campo"><label for="rl-ate">Até</label><input type="date" id="rl-ate"></div>
+          <button class="btn sec peq" data-exp="rncs" data-fmt="xlsx">Excel</button>
+        </div>
+        <div class="tabela-wrap"><table><thead><tr><th>Nº</th><th>Ocorrência</th><th>Destino</th><th>Produtos</th><th>Onde</th><th>Situação</th><th></th></tr></thead><tbody id="rl-lista"></tbody></table></div>
+      </div>
+
+      <div id="rnc-indicadores" class="oculto">
+        <div class="filtros">
+          <div class="campo"><label for="ri-de">De</label><input type="date" id="ri-de"></div>
+          <div class="campo"><label for="ri-ate">Até</label><input type="date" id="ri-ate"></div>
+          <div class="campo"><label for="ri-destino">Destino</label><select id="ri-destino"><option value="">CD e CP</option><option value="CD">CD</option><option value="CP">CP</option></select></div>
+        </div>
+        <div class="indicadores" id="ri-cards"></div>
+        <div class="bloco" style="margin-bottom:20px"><h3>RNCs por semana</h3><div class="grafico" style="height:220px"><canvas id="g-rnc-sem"></canvas></div></div>
+        <h3>Produtos com mais RNC</h3>
+        <div class="tabela-wrap"><table><thead><tr><th>Produto</th><th>Origem</th><th class="num">RNCs</th><th class="num">Qtd</th><th class="num">R$</th><th>Problema mais comum</th></tr></thead><tbody id="ri-prod"></tbody></table></div>
+        <h3>Problemas mais frequentes</h3>
+        <div class="tabela-wrap"><table><thead><tr><th>Problema</th><th class="num">Ocorrências</th><th class="num">%</th><th class="num">R$</th></tr></thead><tbody id="ri-prob"></tbody></table></div>
+        <div class="ri-duas">
+          <div><h3>Onde foi percebido</h3>
+            <div class="tabela-wrap"><table><thead><tr><th>Ocasião</th><th class="num">RNCs</th></tr></thead><tbody id="ri-oc"></tbody></table></div></div>
+          <div><h3>Retorno do CD/CP</h3>
+            <div class="tabela-wrap"><table><thead><tr><th>Retorno</th><th class="num">RNCs</th></tr></thead><tbody id="ri-ret"></tbody></table></div></div>
+        </div>
       </div>
     </section>
 
@@ -940,8 +1022,8 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
       </div>
 
       <div id="cad-categorias" class="oculto">
-        <p class="dica">Categorias com controle de desvio (CD e CP) entram nos desvios, tratativas, alertas e recontagem. As demais servem só para controle de estoque e retirada: saldo, requisições e contagem continuam normais.</p>
-        <div class="tabela-wrap"><table><thead><tr><th>Categoria</th><th class="num">Produtos ativos</th><th>Controle de desvio</th></tr></thead><tbody id="cat-lista"></tbody></table></div>
+        <p class="dica">A origem define quais produtos podem ter RNC: só os do CD e da CP. Categorias com controle de desvio (CD e CP) entram nos desvios, tratativas, alertas e recontagem. As demais servem só para controle de estoque e retirada: saldo, requisições e contagem continuam normais.</p>
+        <div class="tabela-wrap"><table><thead><tr><th>Categoria</th><th class="num">Produtos ativos</th><th>Controle de desvio</th><th>Origem (RNC)</th></tr></thead><tbody id="cat-lista"></tbody></table></div>
       </div>
 
       <div id="cad-sccats" class="oculto">
@@ -1018,6 +1100,63 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
   </div>
 </dialog>
 
+<dialog id="modal-rnc">
+  <form id="form-rnc" method="dialog">
+    <div class="modal-cab"><h2 id="rnc-titulo">Abrir RNC</h2></div>
+    <div class="modal-corpo">
+      <div class="aviso oculto" id="rnc-origem-sol"></div>
+      <div class="grade-req">
+        <div class="campo"><label for="rnc-ocasiao">Onde foi percebido</label><select id="rnc-ocasiao" required></select></div>
+        <div class="campo"><label for="rnc-data">Data e hora da ocorrência</label><input id="rnc-data" type="datetime-local" required></div>
+      </div>
+      <div class="grade-req">
+        <div class="campo"><label for="rnc-chef">Chef de cozinha responsável pelo turno</label><input id="rnc-chef" required autocomplete="off"></div>
+        <div class="campo"><label for="rnc-nf">NF (opcional)</label><input id="rnc-nf" autocomplete="off" inputmode="numeric"></div>
+      </div>
+      <label>Produtos</label>
+      <div id="rnc-itens"></div>
+      <button type="button" class="btn sec peq" id="rnc-add-item">Adicionar produto</button>
+      <p class="dica" id="rnc-destino" style="margin:8px 0 14px"></p>
+      <div class="campo"><label for="rnc-desc">Como foi a ocorrência</label><textarea id="rnc-desc" required rows="4" placeholder="O que foi encontrado, quando, como estava o produto, quem percebeu"></textarea></div>
+      <div class="campo"><label for="rnc-acao">O que foi feito com o produto</label><input id="rnc-acao" list="rnc-acoes" autocomplete="off" placeholder="Ex.: separado e identificado para devolução">
+        <datalist id="rnc-acoes"><option value="Separado e identificado aguardando o CD/CP"><option value="Devolvido ao CD/CP"><option value="Descartado"><option value="Recusado no recebimento"><option value="Usado com ressalva, após avaliação da gestão"></datalist></div>
+      <div class="campo"><label for="rnc-fotos-in">Fotos</label><input id="rnc-fotos-in" type="file" accept="image/*" multiple>
+        <div class="rnc-fotos" id="rnc-fotos-prev"></div></div>
+      <div class="erro" id="rnc-erro"></div>
+    </div>
+    <div class="modal-pe">
+      <button type="button" class="btn sec" id="rnc-cancelar">Cancelar</button>
+      <button type="submit" class="btn" id="rnc-salvar">Abrir RNC</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="modal-rnc-pdf" class="dlg-peq">
+  <div class="modal-cab"><h2 id="rnc-pdf-titulo">RNC</h2></div>
+  <div class="modal-corpo"><p style="margin:0" id="rnc-pdf-txt">Gerando o PDF…</p></div>
+  <div class="modal-pe">
+    <button type="button" class="btn sec" id="rnc-pdf-fechar">Fechar</button>
+    <button type="button" class="btn sec" id="rnc-pdf-baixar" disabled>Baixar PDF</button>
+    <button type="button" class="btn" id="rnc-pdf-compartilhar" disabled>Compartilhar</button>
+  </div>
+</dialog>
+
+<dialog id="modal-rnc-ret" class="dlg-peq">
+  <form id="form-rnc-ret" method="dialog">
+    <div class="modal-cab"><h2 id="rnc-ret-titulo">Retorno do CD/CP</h2></div>
+    <div class="modal-corpo">
+      <div class="campo"><label for="rnc-ret-tipo">Retorno</label><select id="rnc-ret-tipo" required></select></div>
+      <div class="campo"><label for="rnc-ret-obs">Observação (opcional)</label><textarea id="rnc-ret-obs" placeholder="Ex.: crédito na próxima NF, reposição na entrega de quarta"></textarea></div>
+      <div class="erro" id="rnc-ret-erro"></div>
+    </div>
+    <div class="modal-pe">
+      <button type="button" class="btn sec" id="rnc-ret-cancelar">Cancelar</button>
+      <button type="submit" class="btn">Encerrar RNC</button>
+    </div>
+  </form>
+</dialog>
+<input type="file" id="rnc-scan-in" accept="image/*,application/pdf" class="oculto">
+
 <dialog id="modal-folha">
   <form id="form-folha" method="dialog">
     <div class="modal-cab"><h2>Folha de requisição</h2></div>
@@ -1062,7 +1201,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-09.2";
+const VERSAO = "2026-10-09.3";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -1120,8 +1259,8 @@ const isGestor = () => E.perfil?.papel === "GESTOR";
 const isLider = () => E.perfil?.papel === "LIDER";
 // Páginas por perfil (gestão vê tudo). Fora da gestão, desvios, estoque, movimentação, CMV e preços são só leitura.
 const PERMISSOES = {
-  ESTOQUISTA: ["painel", "requisicoes", "contagem", "saidas", "entradas", "perdas", "desvios", "saldos", "extrato", "scorecard", "precos"],
-  LIDER: ["requisicoes", "perdas", "processos", "desvios", "saldos", "extrato", "scorecard", "precos"],
+  ESTOQUISTA: ["painel", "requisicoes", "contagem", "saidas", "entradas", "perdas", "rnc", "desvios", "saldos", "extrato", "scorecard", "precos"],
+  LIDER: ["requisicoes", "perdas", "processos", "rnc", "desvios", "saldos", "extrato", "scorecard", "precos"],
 };
 const podeAbrir = (aba) => isGestor() || (PERMISSOES[E.perfil?.papel] || []).includes(aba);
 const ordCat = (c) => { const i = CAT_ORDEM.indexOf(c); return i < 0 ? 99 : i; };
@@ -1273,6 +1412,7 @@ async function iniciar(user) {
     await carregarCadastros();
     prepararFormularios();
     abrirAba(podeAbrir("painel") ? "painel" : "requisicoes");
+    atualizarBadgeRnc();
   } finally { iniciando = false; }
 }
 
@@ -1322,6 +1462,8 @@ async function carregarCadastros() {
   const [pr, sc] = await Promise.all([sb.from("pracas").select("*").order("id"), sb.from("scorecard_categorias").select("*").order("ordem").order("nome")]);
   E.pracas = pr.data || [];
   E.scCats = sc.data || [];
+  const cg = await sb.from("categorias").select("nome,origem");
+  E.catOrigem = Object.fromEntries((cg.data || []).filter((c) => c.origem).map((c) => [c.nome, c.origem]));
   const pracasAtivas = E.pracas.filter((x) => x.ativo);
   $("#per-praca").innerHTML = `<option value="">Selecione</option>` + pracasAtivas.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
   $("#pc-praca").innerHTML = `<option value="">Todas</option>` + E.pracas.map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
@@ -1331,6 +1473,7 @@ async function carregarCadastros() {
   $("#sai-tipo").innerHTML = E.tipos.filter((x) => x.ativo).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
   $("#ext-produto").innerHTML = opcoesProdutos($("#ext-produto").value, E.todosProdutos);
   $("#lista-categorias").innerHTML = [...new Set(E.todosProdutos.map((x) => x.categoria))].map((c) => `<option value="${esc(c)}">`).join("");
+  prepararRnc();
 }
 
 function prepararFormularios() {
@@ -2575,10 +2718,17 @@ async function renderCategorias() {
   const cats = await q(sb.from("categorias").select("*").order("nome"));
   const n = (c) => E.todosProdutos.filter((p) => p.ativo && p.categoria === c).length;
   $("#cat-lista").innerHTML = cats.map((c) => `<tr><td>${esc(c.nome)}</td><td class="num">${n(c.nome)}</td>
-    <td><label class="chk" style="padding:0"><input type="checkbox" data-cat="${esc(c.nome)}" ${c.controla_desvio ? "checked" : ""}> ${c.controla_desvio ? "Sim" : "Não, só estoque e retirada"}</label></td></tr>`).join("")
-    || `<tr><td colspan="3" class="vazio">Nenhuma categoria.</td></tr>`;
+    <td><label class="chk" style="padding:0"><input type="checkbox" data-cat="${esc(c.nome)}" ${c.controla_desvio ? "checked" : ""}> ${c.controla_desvio ? "Sim" : "Não, só estoque e retirada"}</label></td>
+    <td><select data-cat-origem="${esc(c.nome)}" style="width:auto"><option value="">Outro fornecedor (sem RNC)</option><option value="CD" ${c.origem === "CD" ? "selected" : ""}>CD</option><option value="CP" ${c.origem === "CP" ? "selected" : ""}>CP</option></select></td></tr>`).join("")
+    || `<tr><td colspan="4" class="vazio">Nenhuma categoria.</td></tr>`;
 }
 $("#cat-lista").addEventListener("change", async (ev) => {
+  const o = ev.target.closest("[data-cat-origem]");
+  if (o) {
+    const { error } = await sb.from("categorias").update({ origem: o.value || null }).eq("nome", o.dataset.catOrigem);
+    if (error) return toast(msgErro(error));
+    toast(`${o.dataset.catOrigem}: ${o.value ? "origem " + o.value : "sem RNC"}.`); await carregarCadastros(); return renderCategorias();
+  }
   const i = ev.target.closest("[data-cat]"); if (!i) return;
   const { error } = await sb.from("categorias").update({ controla_desvio: i.checked }).eq("nome", i.dataset.cat);
   if (error) { i.checked = !i.checked; return toast(msgErro(error)); }
@@ -2702,7 +2852,7 @@ $("#per-salvar").addEventListener("click", async () => {
   if (new Date(data_hora) > new Date(Date.now() + 5 * 60e3)) return erro("A data e hora não pode estar no futuro.");
   const p = E.todosProdutos.find((x) => x.id === produto_id);
   const ed = E.perdaEditando;
-  if (!confirm(`${ed ? "Salvar alterações na perda" : "Registrar perda"}: ${fmtQtd(quantidade)} ${p?.unidade || ""} de ${p?.nome}?${ed?.status === "CONFIRMADA" ? "\n\nA perda já está confirmada: a saída gerada também será ajustada." : ""}`)) return;
+  if (!confirm(`${ed ? "Salvar alterações na perda" : "Registrar perda"}: ${fmtQtd(quantidade)} ${p?.unidade || ""} de ${p?.nome}?`)) return;
   const btn = $("#per-salvar"); btn.disabled = true;
   const observacao = $("#per-obs").value.trim() || null;
   const { error } = ed
@@ -2730,7 +2880,7 @@ function editarPerda(x) {
   $("#per-praca").value = String(x.praca_id); $("#per-qtd").value = numIn(x.quantidade);
   $("#per-data").value = isoParaInput(x.data_hora); $("#per-motivo").value = x.motivo || ""; $("#per-obs").value = x.observacao || "";
   $("#per-salvar").textContent = "Salvar alterações"; $("#per-cancelar-edicao").classList.remove("oculto");
-  $("#per-erro").textContent = x.status === "CONFIRMADA" ? "Editando uma perda confirmada: a saída gerada será ajustada junto." : "";
+  $("#per-erro").textContent = x.status === "CONFIRMADA" ? "Editando uma perda já confirmada." : "";
   $(".per-form").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 const podeEditarPerda = (x) => x.status !== "CANCELADA" && (isGestor() || (x.status === "PENDENTE" && x.registrado_por === E.perfil.id));
@@ -2743,10 +2893,10 @@ async function acaoPerda(acao, x, recarregar) {
   if (acao === "editar") return editarPerda(x);
   let r;
   if (acao === "desfazer") {
-    if (!confirm(`Desfazer a ${x.status === "CONFIRMADA" ? "confirmação" : "recusa"} da perda de ${fmtQtd(x.quantidade)} ${x.unidade} de ${x.produto}?\n\nEla volta para "aguardando confirmação"${x.status === "CONFIRMADA" ? " e a saída gerada é excluída" : ""}.`)) return;
+    if (!confirm(`Desfazer a ${x.status === "CONFIRMADA" ? "confirmação" : "recusa"} da perda de ${fmtQtd(x.quantidade)} ${x.unidade} de ${x.produto}?\n\nEla volta para "aguardando confirmação".`)) return;
     r = await sb.rpc("reabrir_perda", { p_id: x.id });
   } else {
-    if (!confirm(`Cancelar a perda de ${fmtQtd(x.quantidade)} ${x.unidade} de ${x.produto}?${x.status === "CONFIRMADA" ? "\n\nEla já está confirmada: a saída gerada será excluída e o desvio volta a ficar sem justificativa." : ""}\n\nFica registrado na auditoria.`)) return;
+    if (!confirm(`Cancelar a perda de ${fmtQtd(x.quantidade)} ${x.unidade} de ${x.produto}?${x.status === "CONFIRMADA" ? "\n\nEla já está confirmada: o desvio volta a ficar sem justificativa." : ""}\n\nFica registrado na auditoria.`)) return;
     r = await sb.rpc("cancelar_perda", { p_id: x.id });
   }
   if (r.error) return toast(msgErro(r.error));
@@ -2824,7 +2974,7 @@ $("#pc-lista").addEventListener("click", async (ev) => {
   if (["editar", "desfazer", "cancelar"].includes(b.dataset.pc)) return acaoPerda(b.dataset.pc, x, carregarConfirmacao);
   let r;
   if (b.dataset.pc === "confirmar") {
-    if (!confirm(`Confirmar a perda de ${desc}?\n\nO produto sai da câmara da cozinha como "Perda (desvio justificado)". O desvio continua contando, agora justificado.`)) return;
+    if (!confirm(`Confirmar a perda de ${desc}?\n\nNão dá baixa no estoque. O desvio continua contando, agora como justificado.`)) return;
     r = await sb.rpc("confirmar_perda", { p_id: x.id });
   } else if (b.dataset.pc === "recusar") {
     const motivo = prompt(`Recusar a perda de ${desc}?\n\nMotivo da recusa:`);
@@ -2832,7 +2982,7 @@ $("#pc-lista").addEventListener("click", async (ev) => {
     if (!motivo.trim()) return toast("Informe o motivo da recusa.");
     r = await sb.rpc("recusar_perda", { p_id: x.id, p_motivo: motivo.trim() });
   } else {
-    if (!confirm(`Reabrir a perda de ${desc}?\n\nEla volta para "aguardando confirmação"${x.status === "CONFIRMADA" ? " e a saída gerada é excluída" : ""}.`)) return;
+    if (!confirm(`Reabrir a perda de ${desc}?\n\nEla volta para "aguardando confirmação".`)) return;
     r = await sb.rpc("reabrir_perda", { p_id: x.id });
   }
   if (r.error) return toast(msgErro(r.error));
@@ -2843,13 +2993,596 @@ $("#pc-lista").addEventListener("click", async (ev) => {
 $("#pc-confirmar-todas").addEventListener("click", async () => {
   const pend = (E.pcLista || []).filter((x) => x.status === "PENDENTE");
   if (!pend.length) return;
-  if (!confirm(`Confirmar ${pend.length} perdas pendentes listadas? Todas saem da câmara da cozinha como desvio justificado.`)) return;
+  if (!confirm(`Confirmar ${pend.length} perdas pendentes listadas? Elas passam a justificar o desvio, sem dar baixa no estoque.`)) return;
   const btn = $("#pc-confirmar-todas"); btn.disabled = true;
   let ok = 0;
   for (const x of pend) { const { error } = await sb.rpc("confirmar_perda", { p_id: x.id }); if (error) { toast(msgErro(error)); break; } ok++; }
   btn.disabled = false;
   toast(`${ok} perdas confirmadas.`); carregarConfirmacao();
 });
+
+
+// ============================================================
+// RNC (relatório de não conformidade para CD e CP)
+// ============================================================
+const BUCKET_RNC = "rnc-fotos";
+const PROBLEMAS_RNC = ["Temperatura inadequada", "Descongelado ou recongelado", "Vencido ou validade próxima", "Peso ou quantidade divergente",
+  "Porcionamento fora do padrão", "Aspecto, cor ou odor alterado", "Textura alterada", "Corpo estranho", "Embalagem danificada ou violada",
+  "Sem identificação ou etiqueta", "Produto diferente do pedido", "Outro"];
+const NOME_OCASIAO = { COZINHA: "Na cozinha", RECEBIMENTO: "No recebimento", ARMAZENAGEM: "Na armazenagem (câmara ou estoque)", OUTRA: "Outra situação" };
+const NOME_ST_SOL = { PENDENTE: "Aguardando análise", EM_ANALISE: "Em análise", RNC_ABERTA: "RNC aberta", RECUSADA: "Recusada", CANCELADA: "Cancelada" };
+const CLS_ST_SOL = { PENDENTE: "pend", EM_ANALISE: "obs", RNC_ABERTA: "ok", RECUSADA: "ruim", CANCELADA: "neutro" };
+const NOME_ST_RNC = { ABERTA: "Aberta: assinar e enviar", ENVIADA: "Enviada: aguardando retorno", ENCERRADA: "Encerrada" };
+const CLS_ST_RNC = { ABERTA: "pend", ENVIADA: "obs", ENCERRADA: "ok" };
+const NOME_RETORNO = { CREDITO: "Crédito ou abatimento", REPOSICAO: "Reposição do produto", IMPROCEDENTE: "Improcedente", SEM_RETORNO: "Sem retorno" };
+const produtosRnc = () => E.produtos.filter((p) => E.catOrigem?.[p.categoria]);
+const origemDe = (p) => E.catOrigem?.[p?.categoria] || "";
+const opcoesLista = (obj, vazio) => (vazio ? `<option value="">${vazio}</option>` : "") + Object.entries(obj).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
+const opcoesProblema = (sel = "") => `<option value="">Problema</option>` + PROBLEMAS_RNC.map((p) => `<option ${p === sel ? "selected" : ""}>${esc(p)}</option>`).join("");
+
+function prepararRnc() {
+  $("#rs-produto").innerHTML = opcoesProdutos($("#rs-produto").value, produtosRnc());
+  $("#rs-problema").innerHTML = opcoesProblema();
+  $("#rs-ocasiao").innerHTML = opcoesLista(NOME_OCASIAO);
+  $("#rnc-ocasiao").innerHTML = opcoesLista(NOME_OCASIAO);
+  $("#rnc-ret-tipo").innerHTML = opcoesLista(NOME_RETORNO, "Selecione");
+  const hoje = hojeSP();
+  $("#rl-de").value = addDias(hoje, -89); $("#rl-ate").value = hoje;
+  $("#ri-de").value = hoje.slice(0, 8) + "01"; $("#ri-ate").value = hoje;
+}
+
+// Reduz a foto do celular antes de enviar (máx. 1600 px, JPEG)
+async function comprimirImagem(file, max = 1600, qualidade = 0.8) {
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise((ok) => c.toBlob(ok, "image/jpeg", qualidade));
+    return blob || file;
+  } catch (_) { return file; }
+}
+async function enviarArquivoRnc(pasta, arquivo) {
+  const blob = arquivo.type?.startsWith("image/") ? await comprimirImagem(arquivo) : arquivo;
+  const tipo = blob.type || arquivo.type || "application/octet-stream";
+  const ext = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic", "application/pdf": "pdf" }[tipo] || "jpg";
+  const path = `${pasta}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await sb.storage.from(BUCKET_RNC).upload(path, blob, { contentType: tipo });
+  if (error) throw error;
+  return path;
+}
+async function urlsRnc(paths) {
+  if (!paths.length) return {};
+  const { data } = await sb.storage.from(BUCKET_RNC).createSignedUrls(paths, 3600);
+  return Object.fromEntries((data || []).filter((x) => x.signedUrl).map((x) => [x.path, x.signedUrl]));
+}
+async function abrirArquivoRnc(path) {
+  const w = window.open("", "_blank");
+  const u = (await urlsRnc([path]))[path];
+  if (!u) { if (w) w.close(); return toast("Não foi possível abrir o arquivo."); }
+  if (w) { w.opener = null; w.location.href = u; } else location.href = u;
+}
+
+carregadores.rnc = () => {
+  $("#rnc-ola").classList.toggle("oculto", isGestor());
+  if (!isGestor()) $("#rnc-ola").textContent = `${cumprimento()}, ${primeiroNome()}.`;
+  abrirRncSub(isGestor() ? $("#rnc-nav [aria-selected='true']").dataset.rsub : "solicitar");
+};
+$("#rnc-nav").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-rsub]"); if (b) abrirRncSub(b.dataset.rsub); });
+function abrirRncSub(sub) {
+  if (!isGestor()) sub = "solicitar";
+  $$("#rnc-nav button").forEach((b) => b.setAttribute("aria-selected", b.dataset.rsub === sub));
+  ["solicitar", "solicitacoes", "lista", "indicadores"].forEach((x) => $("#rnc-" + x).classList.toggle("oculto", sub !== x));
+  $("#rnc-nav").classList.toggle("oculto", !isGestor());
+  ({ solicitar: carregarMinhasSolRnc, solicitacoes: carregarSolRnc, lista: carregarRncs, indicadores: carregarIndRnc })[sub]();
+}
+async function atualizarBadgeRnc() {
+  if (!isGestor()) return;
+  const { count } = await sb.from("rnc_solicitacoes").select("id", { count: "exact", head: true }).eq("status", "PENDENTE");
+  const html = count ? `<span class="selo ruim">${count}</span>` : "";
+  $("#rnc-badge").innerHTML = html; $("#nav-rnc-badge").innerHTML = html;
+}
+const seloSol = (s) => `<span class="selo ${CLS_ST_SOL[s]}">${NOME_ST_SOL[s]}</span>`;
+const seloRnc = (s) => `<span class="selo ${CLS_ST_RNC[s]}">${NOME_ST_RNC[s]}</span>`;
+
+// --- Solicitar (chefs, estoquista e gestão)
+$("#rs-produto").addEventListener("change", () => {
+  const p = E.produtos.find((x) => x.id === $("#rs-produto").value);
+  $("#rs-un").textContent = p ? `Unidade: ${p.unidade} | Origem: ${origemDe(p)}` : "";
+});
+$("#rs-foto").addEventListener("change", () => {
+  const f = $("#rs-foto").files[0];
+  $("#rs-foto-prev").innerHTML = f ? `<div class="rnc-foto"><img src="${URL.createObjectURL(f)}" alt="Foto do produto"><button type="button" aria-label="Remover foto" id="rs-foto-x">✕</button></div>` : "";
+});
+$("#rs-foto-prev").addEventListener("click", (ev) => { if (ev.target.closest("#rs-foto-x")) { $("#rs-foto").value = ""; $("#rs-foto-prev").innerHTML = ""; } });
+$("#rs-enviar").addEventListener("click", async () => {
+  const erro = (m) => ($("#rs-erro").textContent = m); erro("");
+  const produto_id = $("#rs-produto").value, quantidade = num($("#rs-qtd").value), problema = $("#rs-problema").value;
+  const descricao = $("#rs-desc").value.trim();
+  if (!produto_id) return erro("Escolha o produto.");
+  if (!(quantidade > 0)) return erro("Informe a quantidade com problema.");
+  if (!problema) return erro("Escolha o problema.");
+  if (problema === "Outro" && !descricao) return erro("Descreva o problema.");
+  const p = E.produtos.find((x) => x.id === produto_id);
+  if (!confirm(`Solicitar RNC de ${fmtQtd(quantidade)} ${p.unidade} de ${p.nome} (${problema})?`)) return;
+  const btn = $("#rs-enviar"); btn.disabled = true; btn.textContent = "Enviando…";
+  try {
+    let foto_path = null;
+    const f = $("#rs-foto").files[0];
+    if (f) foto_path = await enviarArquivoRnc("solicitacoes", f);
+    const { data, error } = await sb.from("rnc_solicitacoes").insert({ produto_id, quantidade, problema, descricao: descricao || null, ocasiao: $("#rs-ocasiao").value, foto_path }).select("numero").single();
+    if (error) throw error;
+    toast(`Solicitação ${data.numero} enviada para a gestão.`);
+    $("#rs-produto").value = ""; $("#rs-un").textContent = ""; $("#rs-qtd").value = ""; $("#rs-problema").value = ""; $("#rs-desc").value = "";
+    $("#rs-foto").value = ""; $("#rs-foto-prev").innerHTML = "";
+    carregarMinhasSolRnc(); atualizarBadgeRnc();
+  } catch (e) { erro(msgErro(e)); }
+  finally { btn.disabled = false; btn.textContent = "Solicitar RNC"; }
+});
+async function carregarMinhasSolRnc() {
+  const lista = await q(sb.from("v_rnc_solicitacoes").select("*").order("solicitado_em", { ascending: false }).limit(40));
+  E.rsLista = lista;
+  $("#rs-lista").innerHTML = lista.length ? lista.map((x) => `<tr>
+    <td>${esc(x.numero)}</td><td>${fmtDataHora(x.solicitado_em)}</td><td>${esc(x.produto)} <small class="dica">${esc(x.origem || "")}</small></td>
+    <td class="num">${fmtQtd(x.quantidade)} ${esc(x.unidade)}</td>
+    <td>${esc(x.problema)}${x.descricao ? `<br><small class="dica">${esc(x.descricao)}</small>` : ""}</td>
+    <td>${esc(x.solicitado_por_nome)}</td>
+    <td>${seloSol(x.status)}${x.rnc_numero ? `<br><small class="dica">${esc(x.rnc_numero)}</small>` : ""}${x.motivo_recusa ? `<br><small class="dica">${esc(x.motivo_recusa)}</small>` : ""}</td>
+    <td><div class="acoes">${x.status === "PENDENTE" && (x.solicitado_por === E.perfil.id || isGestor()) ? `<button class="btn perigo peq" data-rs="cancelar" data-id="${x.id}">Cancelar</button>` : ""}</div></td></tr>`).join("")
+    : `<tr><td colspan="8" class="vazio">Nenhuma solicitação ainda.</td></tr>`;
+}
+$("#rs-lista").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-rs]"); if (!b) return;
+  const x = E.rsLista.find((s) => s.id === b.dataset.id); if (!x) return;
+  if (!confirm(`Cancelar a solicitação ${x.numero}?`)) return;
+  const { error } = await sb.rpc("cancelar_solicitacao_rnc", { p_id: x.id });
+  if (error) return toast(msgErro(error));
+  toast("Solicitação cancelada."); carregarMinhasSolRnc(); atualizarBadgeRnc();
+});
+
+// --- Solicitações recebidas (gestão)
+$("#rsg-status").addEventListener("change", carregarSolRnc);
+async function carregarSolRnc() {
+  const st = $("#rsg-status").value;
+  let qr = sb.from("v_rnc_solicitacoes").select("*").order("solicitado_em", { ascending: st === "ABERTAS" });
+  if (st === "ABERTAS") qr = qr.in("status", ["PENDENTE", "EM_ANALISE"]); else if (st) qr = qr.eq("status", st);
+  const lista = await q(qr.limit(300));
+  E.rsgLista = lista;
+  atualizarBadgeRnc();
+  $("#rsg-lista").innerHTML = lista.length ? lista.map((x) => {
+    const ab = x.status === "PENDENTE" || x.status === "EM_ANALISE";
+    const acoes = [
+      x.status === "PENDENTE" ? `<button class="btn sec peq" data-rsg="analisar" data-id="${x.id}">Iniciar análise</button>` : "",
+      ab ? `<button class="btn peq" data-rsg="abrir" data-id="${x.id}">Abrir RNC</button>` : "",
+      ab ? `<button class="btn perigo peq" data-rsg="recusar" data-id="${x.id}">Recusar</button>` : "",
+      x.status === "RECUSADA" ? `<button class="btn sec peq" data-rsg="reabrir" data-id="${x.id}">Reabrir</button>` : "",
+    ].join("");
+    return `<tr><td>${esc(x.numero)}</td><td>${fmtDataHora(x.solicitado_em)}</td>
+      <td>${esc(x.produto)} <small class="dica">${esc(x.origem || "")}</small></td>
+      <td class="num">${fmtQtd(x.quantidade)} ${esc(x.unidade)}</td>
+      <td>${esc(x.problema)}<br><small class="dica">${esc(NOME_OCASIAO[x.ocasiao] || "")}${x.descricao ? ` | ${esc(x.descricao)}` : ""}</small></td>
+      <td>${x.foto_path ? `<button class="btn sec peq" data-rsg="foto" data-id="${x.id}">Ver foto</button>` : "-"}</td>
+      <td>${esc(x.solicitado_por_nome)}</td>
+      <td>${seloSol(x.status)}${x.analisado_por_nome ? `<br><small class="dica">${esc(x.analisado_por_nome)}</small>` : ""}${x.rnc_numero ? `<br><small class="dica">${esc(x.rnc_numero)}</small>` : ""}${x.motivo_recusa ? `<br><small class="dica">${esc(x.motivo_recusa)}</small>` : ""}</td>
+      <td><div class="acoes">${acoes}</div></td></tr>`;
+  }).join("") : `<tr><td colspan="9" class="vazio">${st === "ABERTAS" ? "Nenhuma solicitação aguardando." : "Nada neste filtro."}</td></tr>`;
+}
+$("#rsg-lista").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-rsg]"); if (!b) return;
+  const x = E.rsgLista.find((s) => s.id === b.dataset.id); if (!x) return;
+  const a = b.dataset.rsg;
+  if (a === "foto") return abrirArquivoRnc(x.foto_path);
+  if (a === "abrir") return abrirFormRnc(null, x);
+  let r;
+  if (a === "analisar") r = await sb.rpc("analisar_solicitacao_rnc", { p_id: x.id });
+  else if (a === "reabrir") r = await sb.rpc("reabrir_solicitacao_rnc", { p_id: x.id });
+  else {
+    const motivo = prompt(`Recusar a solicitação ${x.numero} (${x.produto})?\n\nMotivo da recusa:`);
+    if (motivo === null) return;
+    if (!motivo.trim()) return toast("Informe o motivo da recusa.");
+    r = await sb.rpc("recusar_solicitacao_rnc", { p_id: x.id, p_motivo: motivo.trim() });
+  }
+  if (r.error) return toast(msgErro(r.error));
+  toast(a === "analisar" ? `${x.numero} em análise. Confira o produto e abra a RNC ou recuse.` : a === "reabrir" ? "Solicitação reaberta." : "Solicitação recusada.");
+  carregarSolRnc();
+});
+
+// --- Formulário da RNC (gestão)
+$("#rnc-nova").addEventListener("click", () => abrirFormRnc());
+$("#rnc-cancelar").addEventListener("click", () => $("#modal-rnc").close());
+$("#rnc-add-item").addEventListener("click", () => addItemRnc());
+function addItemRnc(produtoId = "", qtd = "", problema = "") {
+  const div = document.createElement("div");
+  div.className = "rnc-item";
+  div.innerHTML = `<select class="rnc-prod" aria-label="Produto" required>${opcoesProdutos(produtoId, produtosRnc())}</select>
+    <input type="text" inputmode="decimal" autocomplete="off" aria-label="Quantidade" placeholder="Qtd" value="${qtd}" required>
+    <select class="rnc-prob" aria-label="Problema" required>${opcoesProblema(problema)}</select>
+    <button type="button" aria-label="Remover produto">✕</button>
+    <div class="sugestao"></div>`;
+  const sel = div.querySelector(".rnc-prod");
+  const atual = () => {
+    const p = E.produtos.find((x) => x.id === sel.value);
+    div.querySelector(".sugestao").textContent = p ? `Unidade: ${p.unidade} | Origem: ${origemDe(p)}` : "";
+    atualizarDestinoRnc();
+  };
+  sel.addEventListener("change", atual);
+  div.querySelector("button").addEventListener("click", () => { div.remove(); atualizarDestinoRnc(); });
+  $("#rnc-itens").appendChild(div); atual();
+}
+function atualizarDestinoRnc() {
+  const ors = new Set([...$$("#rnc-itens .rnc-prod")].map((s) => origemDe(E.produtos.find((p) => p.id === s.value))).filter(Boolean));
+  const d = ors.size > 1 ? "CD e CP" : [...ors][0];
+  $("#rnc-destino").textContent = d ? `Destino da RNC: ${d}` : "";
+}
+function renderFotosRnc() {
+  $("#rnc-fotos-prev").innerHTML = E.rncFotos.map((f, i) => `<div class="rnc-foto"><img src="${f.url || ""}" alt="Foto ${i + 1}"><button type="button" data-i="${i}" aria-label="Remover foto">✕</button></div>`).join("");
+}
+$("#rnc-fotos-in").addEventListener("change", () => {
+  [...$("#rnc-fotos-in").files].forEach((file) => E.rncFotos.push({ file, url: URL.createObjectURL(file) }));
+  $("#rnc-fotos-in").value = ""; renderFotosRnc();
+});
+$("#rnc-fotos-prev").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-i]"); if (!b) return;
+  const [f] = E.rncFotos.splice(Number(b.dataset.i), 1);
+  if (f?.id) E.rncFotosRemover.push(f.id);
+  renderFotosRnc();
+});
+async function abrirFormRnc(edit = null, sol = null) {
+  E.rncEditando = edit; E.rncSol = sol; E.rncFotos = []; E.rncFotosRemover = [];
+  $("#form-rnc").reset(); $("#rnc-erro").textContent = ""; $("#rnc-itens").innerHTML = ""; $("#rnc-fotos-prev").innerHTML = "";
+  $("#rnc-titulo").textContent = edit ? `Editar ${edit.numero}` : "Abrir RNC";
+  $("#rnc-salvar").textContent = edit ? "Salvar alterações" : "Abrir RNC";
+  $("#rnc-origem-sol").classList.toggle("oculto", !sol && !edit?.solicitacao_numero);
+  if (edit) {
+    $("#rnc-origem-sol").textContent = edit.solicitacao_numero ? `Aberta a partir da solicitação ${edit.solicitacao_numero}, de ${edit.solicitado_por_nome}.` : "";
+    $("#rnc-ocasiao").value = edit.ocasiao; $("#rnc-data").value = isoParaInput(edit.data_ocorrencia);
+    $("#rnc-chef").value = edit.chef_turno; $("#rnc-nf").value = edit.nf || "";
+    $("#rnc-desc").value = edit.descricao; $("#rnc-acao").value = edit.acao_imediata || "";
+    const [itens, fotos] = await Promise.all([
+      q(sb.from("rnc_itens").select("produto_id,quantidade,problema").eq("rnc_id", edit.id).is("excluido_em", null)),
+      q(sb.from("rnc_fotos").select("id,path").eq("rnc_id", edit.id).order("created_at")),
+    ]);
+    itens.forEach((i) => addItemRnc(i.produto_id, numIn(i.quantidade), i.problema));
+    const urls = await urlsRnc(fotos.map((f) => f.path));
+    E.rncFotos = fotos.map((f) => ({ id: f.id, path: f.path, url: urls[f.path] }));
+    renderFotosRnc();
+  } else {
+    $("#rnc-data").value = agoraInput();
+    if (sol) {
+      $("#rnc-origem-sol").textContent = `Solicitação ${sol.numero}, de ${sol.solicitado_por_nome} em ${fmtDataHora(sol.solicitado_em)}${sol.descricao ? `: "${sol.descricao}"` : "."}`;
+      $("#rnc-ocasiao").value = sol.ocasiao; $("#rnc-data").value = isoParaInput(sol.solicitado_em);
+      $("#rnc-desc").value = sol.descricao || "";
+      addItemRnc(sol.produto_id, numIn(sol.quantidade), sol.problema);
+      if (sol.foto_path) { const u = await urlsRnc([sol.foto_path]); E.rncFotos.push({ path: sol.foto_path, url: u[sol.foto_path] }); renderFotosRnc(); }
+    } else addItemRnc();
+  }
+  $("#modal-rnc").showModal();
+}
+$("#form-rnc").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const erro = (m) => ($("#rnc-erro").textContent = m); erro("");
+  const itens = [...$$("#rnc-itens .rnc-item")].map((d) => ({ produto_id: d.querySelector(".rnc-prod").value, quantidade: num(d.querySelector("input").value), problema: d.querySelector(".rnc-prob").value }))
+    .filter((i) => i.produto_id);
+  if (!itens.length) return erro("Inclua ao menos um produto.");
+  if (itens.some((i) => !(i.quantidade > 0))) return erro("Informe a quantidade de cada produto.");
+  if (itens.some((i) => !i.problema)) return erro("Escolha o problema de cada produto.");
+  const data_hora = inputParaISO($("#rnc-data").value);
+  if (new Date(data_hora) > new Date(Date.now() + 10 * 60e3)) return erro("A data e hora não pode estar no futuro.");
+  const dados = { ocasiao: $("#rnc-ocasiao").value, data_ocorrencia: data_hora, chef_turno: $("#rnc-chef").value, nf: $("#rnc-nf").value,
+    descricao: $("#rnc-desc").value, acao_imediata: $("#rnc-acao").value, solicitacao_id: E.rncSol?.id || null };
+  const btn = $("#rnc-salvar"); btn.disabled = true; const txt = btn.textContent; btn.textContent = "Salvando…";
+  try {
+    const ed = E.rncEditando;
+    const { data: r, error } = ed ? await sb.rpc("editar_rnc", { p_id: ed.id, p_dados: dados, p_itens: itens }) : await sb.rpc("criar_rnc", { p_dados: dados, p_itens: itens });
+    if (error) throw error;
+    // Fotos: envia as novas, registra as que vieram da solicitação, remove as tiradas da lista
+    const novas = [];
+    for (const f of E.rncFotos) {
+      if (f.id) continue;
+      novas.push({ rnc_id: r.id, path: f.path || (await enviarArquivoRnc(`rnc/${r.numero}`, f.file)) });
+    }
+    if (novas.length) { const { error: e2 } = await sb.from("rnc_fotos").insert(novas); if (e2) throw e2; }
+    if (E.rncFotosRemover.length) { const { error: e3 } = await sb.from("rnc_fotos").delete().in("id", E.rncFotosRemover); if (e3) throw e3; }
+    $("#modal-rnc").close();
+    toast(ed ? `${r.numero} alterada.` : `${r.numero} aberta.`);
+    atualizarBadgeRnc();
+    if ($("#rnc-solicitacoes").classList.contains("oculto")) carregarRncs(); else carregarSolRnc();
+    if (!ed) mostrarPdfRnc(r.id, true);
+  } catch (e) { erro(msgErro(e)); }
+  finally { btn.disabled = false; btn.textContent = txt; }
+});
+
+// --- Lista de RNCs (gestão)
+["#rl-status", "#rl-destino", "#rl-de", "#rl-ate"].forEach((s) => $(s).addEventListener("change", carregarRncs));
+async function carregarRncs() {
+  const st = $("#rl-status").value, dest = $("#rl-destino").value, de = $("#rl-de").value, ate = $("#rl-ate").value;
+  const lista = await tudo(() => {
+    let qr = sb.from("v_rncs").select("*").is("excluido_em", null).order("created_at", { ascending: false });
+    if (st) qr = qr.eq("status", st); else qr = qr.gte("dia", de).lte("dia", ate);
+    return dest ? qr.in("destino", [dest, "CD/CP"]) : qr;
+  });
+  const ids = lista.map((r) => r.id);
+  const itens = ids.length ? await tudo(() => sb.from("v_rnc_itens").select("rnc_id,produto,quantidade,unidade,problema,valor").in("rnc_id", ids)) : [];
+  const porRnc = {};
+  itens.forEach((i) => (porRnc[i.rnc_id] ??= []).push(i));
+  E.rlLista = lista; E.rlItens = porRnc;
+  $("#rl-lista").innerHTML = lista.length ? lista.map((r) => {
+    const its = porRnc[r.id] || [];
+    const acoes = [
+      `<button class="btn peq" data-rl="pdf" data-id="${r.id}">PDF</button>`,
+      r.scan_path ? `<button class="btn sec peq" data-rl="ver-scan" data-id="${r.id}">Ver scan</button>` : `<button class="btn sec peq" data-rl="scan" data-id="${r.id}">Anexar scan</button>`,
+      r.scan_path ? `<button class="btn sec peq" data-rl="enviar" data-id="${r.id}">Enviar scan</button>` : "",
+      r.status === "ABERTA" ? `<button class="btn sec peq" data-rl="marcar" data-id="${r.id}">Marcar como enviada</button>` : "",
+      r.status !== "ENCERRADA" ? `<button class="btn sec peq" data-rl="retorno" data-id="${r.id}">Registrar retorno</button>` : `<button class="btn sec peq" data-rl="reabrir" data-id="${r.id}">Reabrir</button>`,
+      `<button class="btn sec peq" data-rl="editar" data-id="${r.id}">Editar</button>`,
+      r.scan_path ? `<button class="btn perigo peq" data-rl="tirar-scan" data-id="${r.id}">Excluir scan</button>` : "",
+      `<button class="btn perigo peq" data-rl="excluir" data-id="${r.id}">Excluir</button>`,
+    ].join("");
+    return `<tr><td><strong>${esc(r.numero)}</strong>${r.solicitacao_numero ? `<br><small class="dica">${esc(r.solicitacao_numero)}</small>` : ""}</td>
+      <td>${fmtDataHora(r.data_ocorrencia)}<br><small class="dica">Chef: ${esc(r.chef_turno)}</small></td>
+      <td>${esc(r.destino === "CD/CP" ? "CD e CP" : r.destino)}</td>
+      <td>${its.map((i) => `${fmtQtd(i.quantidade)} ${esc(i.unidade)} ${esc(i.produto)} <small class="dica">(${esc(i.problema)})</small>`).join("<br>")}</td>
+      <td>${esc(NOME_OCASIAO[r.ocasiao])}</td>
+      <td>${seloRnc(r.status)}${r.retorno ? `<br><small class="dica">${esc(NOME_RETORNO[r.retorno])}${r.retorno_obs ? `: ${esc(r.retorno_obs)}` : ""}</small>` : ""}${!r.scan_path ? `<br><small class="dica">Sem scan</small>` : ""}</td>
+      <td><div class="acoes">${acoes}</div></td></tr>`;
+  }).join("") : `<tr><td colspan="7" class="vazio">Nenhuma RNC neste filtro.</td></tr>`;
+  E.exp.rncs = { titulo: "RNCs", arquivo: "rnc", subtitulo: st ? NOME_ST_RNC[st] : `${fmtData(de)} a ${fmtData(ate)}`,
+    colunas: [{ k: "numero", rotulo: "RNC" }, { k: "data", rotulo: "Ocorrência" }, { k: "destino", rotulo: "Destino" }, { k: "ocasiao", rotulo: "Onde" },
+      { k: "produto", rotulo: "Produto" }, { k: "quantidade", rotulo: "Qtd", num: true }, { k: "unidade", rotulo: "Un." }, { k: "problema", rotulo: "Problema" },
+      { k: "valor", rotulo: "R$", num: true }, { k: "chef", rotulo: "Chef do turno" }, { k: "situacao", rotulo: "Situação" }, { k: "retorno", rotulo: "Retorno" }],
+    linhas: lista.flatMap((r) => (porRnc[r.id] || []).map((i) => ({ numero: r.numero, data: fmtDataHora(r.data_ocorrencia), destino: r.destino, ocasiao: NOME_OCASIAO[r.ocasiao],
+      produto: i.produto, quantidade: Number(i.quantidade), unidade: i.unidade, problema: i.problema, valor: i.valor == null ? "" : Number(i.valor), chef: r.chef_turno,
+      situacao: NOME_ST_RNC[r.status], retorno: r.retorno ? NOME_RETORNO[r.retorno] : "" }))) };
+}
+$("#rl-lista").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-rl]"); if (!b) return;
+  const r = E.rlLista.find((x) => x.id === b.dataset.id); if (!r) return;
+  const a = b.dataset.rl;
+  if (a === "pdf") return mostrarPdfRnc(r.id);
+  if (a === "ver-scan") return abrirArquivoRnc(r.scan_path);
+  if (a === "scan") { E.rncScanAlvo = r; $("#rnc-scan-in").value = ""; return $("#rnc-scan-in").click(); }
+  if (a === "editar") return abrirFormRnc(r);
+  if (a === "enviar") return enviarScanRnc(r);
+  if (a === "retorno") { E.rncRet = r; $("#form-rnc-ret").reset(); $("#rnc-ret-erro").textContent = ""; $("#rnc-ret-titulo").textContent = `Retorno do ${r.destino === "CD/CP" ? "CD/CP" : r.destino}: ${r.numero}`; return $("#modal-rnc-ret").showModal(); }
+  let args;
+  if (a === "marcar") { if (!confirm(`Marcar a ${r.numero} como enviada ao ${r.destino}?`)) return; args = { p_acao: "enviar" }; }
+  if (a === "reabrir") { if (!confirm(`Reabrir a ${r.numero}? O retorno registrado é apagado.`)) return; args = { p_acao: "reabrir" }; }
+  if (a === "tirar-scan") { if (!confirm(`Excluir o scan da ${r.numero}? Depois é só anexar outro.`)) return; args = { p_acao: "scan", p_valor: null }; }
+  if (a === "excluir") {
+    const motivo = prompt(`Excluir a ${r.numero}?${r.solicitacao_numero ? `\n\nA solicitação ${r.solicitacao_numero} volta para "em análise".` : ""}\n\nMotivo da exclusão:`);
+    if (motivo === null) return;
+    if (!motivo.trim()) return toast("Informe o motivo.");
+    args = { p_acao: "excluir", p_obs: motivo.trim() };
+  }
+  const { error } = await sb.rpc("atualizar_rnc", { p_id: r.id, ...args });
+  if (error) return toast(msgErro(error));
+  toast({ enviar: `${r.numero} marcada como enviada.`, reabrir: `${r.numero} reaberta.`, scan: "Scan excluído.", excluir: `${r.numero} excluída.` }[args.p_acao]);
+  carregarRncs();
+});
+$("#rnc-scan-in").addEventListener("change", async (ev) => {
+  const f = ev.target.files[0], r = E.rncScanAlvo;
+  if (!f || !r) return;
+  if (f.size > 15 * 1024 * 1024) return toast("Arquivo acima de 15 MB.");
+  toast("Enviando scan…");
+  try {
+    const path = await enviarArquivoRnc(`scan/${r.numero}`, f);
+    const { error } = await sb.rpc("atualizar_rnc", { p_id: r.id, p_acao: "scan", p_valor: path });
+    if (error) throw error;
+    toast(`Scan anexado à ${r.numero}.`); carregarRncs();
+  } catch (e) { toast(msgErro(e)); }
+});
+// Compartilha o scan assinado (no celular abre o WhatsApp e outros apps)
+async function enviarScanRnc(r) {
+  try {
+    const u = (await urlsRnc([r.scan_path]))[r.scan_path];
+    const blob = await (await fetch(u)).blob();
+    const ext = r.scan_path.split(".").pop();
+    E.rncCompart = { blob, nome: `${r.numero}_assinada.${ext}`, numero: r.numero, r };
+    abrirDlgPdf(`${r.numero}: scan assinado`, `Envie o scan assinado para o ${r.destino === "CD/CP" ? "CD e a CP" : r.destino} pelo WhatsApp.`);
+  } catch (e) { toast("Não foi possível baixar o scan."); }
+}
+$("#form-rnc-ret").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const r = E.rncRet;
+  const { error } = await sb.rpc("atualizar_rnc", { p_id: r.id, p_acao: "encerrar", p_valor: $("#rnc-ret-tipo").value, p_obs: $("#rnc-ret-obs").value });
+  if (error) return ($("#rnc-ret-erro").textContent = msgErro(error));
+  $("#modal-rnc-ret").close(); toast(`${r.numero} encerrada.`); carregarRncs();
+});
+$("#rnc-ret-cancelar").addEventListener("click", () => $("#modal-rnc-ret").close());
+
+// --- PDF da RNC
+function abrirDlgPdf(titulo, txt) {
+  $("#rnc-pdf-titulo").textContent = titulo; $("#rnc-pdf-txt").textContent = txt;
+  const pronto = !!E.rncCompart;
+  $("#rnc-pdf-baixar").disabled = !pronto; $("#rnc-pdf-compartilhar").disabled = !pronto;
+  if (!$("#modal-rnc-pdf").open) $("#modal-rnc-pdf").showModal();
+}
+async function mostrarPdfRnc(id, nova) {
+  E.rncCompart = null;
+  abrirDlgPdf("RNC", "Gerando o PDF…");
+  try {
+    const [[r], itens, fotos] = await Promise.all([
+      q(sb.from("v_rncs").select("*").eq("id", id)),
+      q(sb.from("v_rnc_itens").select("*").eq("rnc_id", id)),
+      q(sb.from("rnc_fotos").select("path").eq("rnc_id", id).order("created_at")),
+    ]);
+    const blob = await gerarPdfRnc(r, itens, fotos.map((f) => f.path));
+    E.rncCompart = { blob, nome: `${r.numero}.pdf`, numero: r.numero, r };
+    abrirDlgPdf(nova ? `${r.numero} aberta` : r.numero,
+      `Imprima, assine e peça a assinatura do chef do turno (${r.chef_turno}). Depois anexe o scan na lista de RNCs e envie para o ${r.destino === "CD/CP" ? "CD e a CP" : r.destino}.`);
+  } catch (e) { $("#rnc-pdf-txt").textContent = "Não foi possível gerar o PDF: " + msgErro(e); }
+}
+$("#rnc-pdf-fechar").addEventListener("click", () => $("#modal-rnc-pdf").close());
+$("#rnc-pdf-baixar").addEventListener("click", () => {
+  const c = E.rncCompart; if (!c) return;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(c.blob); a.download = c.nome; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60e3);
+});
+$("#rnc-pdf-compartilhar").addEventListener("click", async () => {
+  const c = E.rncCompart; if (!c) return;
+  const file = new File([c.blob], c.nome, { type: c.blob.type || "application/pdf" });
+  if (navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: c.numero, text: `${c.numero} - Ilha do Caranguejo` }); }
+    catch (e) { if (e.name !== "AbortError") toast("Não foi possível compartilhar."); return; }
+    if (c.r?.status === "ABERTA" && c.nome.includes("assinada") && confirm(`Marcar a ${c.numero} como enviada?`)) {
+      const { error } = await sb.rpc("atualizar_rnc", { p_id: c.r.id, p_acao: "enviar" });
+      if (!error) { toast(`${c.numero} marcada como enviada.`); carregarRncs(); }
+    }
+  } else {
+    $("#rnc-pdf-baixar").click();
+    toast("Este navegador não compartilha arquivos. O arquivo foi baixado: anexe no WhatsApp.");
+  }
+});
+async function imagemParaPdf(url) {
+  const blob = await (await fetch(url)).blob();
+  const bmp = await createImageBitmap(blob);
+  const k = Math.min(1, 1400 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+  return { data: c.toDataURL("image/jpeg", 0.82), w: c.width, h: c.height };
+}
+async function gerarPdfRnc(r, itens, fotos) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const W = 210, M = 14, CW = W - 2 * M;
+  const destino = r.destino === "CD/CP" ? "CD e CP" : r.destino;
+  // Cabeçalho
+  doc.setFillColor(16, 42, 53); doc.rect(0, 0, W, 26, "F");
+  doc.setTextColor(255); doc.setFont("helvetica", "bold"); doc.setFontSize(15);
+  doc.text("RELATÓRIO DE NÃO CONFORMIDADE", M, 12);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
+  doc.text("Ilha do Caranguejo - Grupo Ilha", M, 19);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(15);
+  doc.text(r.numero, W - M, 12, { align: "right" });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
+  doc.text(`Destino: ${destino}`, W - M, 19, { align: "right" });
+  doc.setTextColor(20, 35, 43);
+  const info = [
+    ["Data e hora da ocorrência", fmtDataHora(r.data_ocorrencia), "Onde foi percebido", NOME_OCASIAO[r.ocasiao]],
+    ["Chef responsável pelo turno", r.chef_turno, "NF", r.nf || "-"],
+    ["Aberta por", `${r.criado_por_nome || ""} em ${fmtDataHora(r.created_at)}`, "Solicitação", r.solicitacao_numero ? `${r.solicitacao_numero} (${r.solicitado_por_nome || ""})` : "-"],
+  ];
+  doc.autoTable({ startY: 32, body: info, theme: "grid", margin: { left: M, right: M },
+    styles: { fontSize: 9, cellPadding: 2.2, lineColor: [205, 214, 219], textColor: [20, 35, 43] },
+    columnStyles: { 0: { fontStyle: "bold", fillColor: [242, 245, 246], cellWidth: 40 }, 2: { fontStyle: "bold", fillColor: [242, 245, 246], cellWidth: 32 } } });
+  doc.autoTable({ startY: doc.lastAutoTable.finalY + 5, margin: { left: M, right: M }, theme: "grid",
+    head: [["Produto", "Origem", "Qtd", "Un.", "Problema"]],
+    body: itens.map((i) => [i.produto, i.origem || "", fmtQtd(i.quantidade), i.unidade, i.problema]),
+    styles: { fontSize: 9, cellPadding: 2.2, lineColor: [205, 214, 219] }, headStyles: { fillColor: [16, 42, 53] },
+    columnStyles: { 1: { cellWidth: 16 }, 2: { halign: "right", cellWidth: 16 }, 3: { cellWidth: 12 } } });
+  let y = doc.lastAutoTable.finalY + 7;
+  const novaPag = (alt) => { if (y + alt > 282) { doc.addPage(); y = 16; } };
+  const bloco = (titulo, texto) => {
+    const linhas = doc.splitTextToSize(texto || "-", CW);
+    novaPag(10 + linhas.length * 4.6);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.text(titulo, M, y); y += 5.5;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
+    linhas.forEach((l) => { novaPag(5); doc.text(l, M, y); y += 4.6; });
+    y += 4;
+  };
+  bloco("Descrição da ocorrência", r.descricao);
+  bloco("O que foi feito com o produto", r.acao_imediata || "-");
+  // Parecer do CD/CP e assinaturas
+  novaPag(78);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.text(`Parecer do ${destino} (preenchido por quem recebe a RNC)`, M, y); y += 3;
+  doc.setDrawColor(150); doc.rect(M, y, CW, 26); y += 38;
+  const lx = [M, M + CW / 2 + 6], lw = CW / 2 - 6;
+  doc.setDrawColor(60);
+  lx.forEach((x) => doc.line(x, y, x + lw, y));
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9.5);
+  doc.text("GESTÃO", lx[0] + lw / 2, y + 5, { align: "center" });
+  doc.text("CHEF DE COZINHA RESPONSÁVEL PELO TURNO", lx[1] + lw / 2, y + 5, { align: "center" });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
+  doc.text(r.criado_por_nome || "", lx[0] + lw / 2, y + 9.5, { align: "center" });
+  doc.text(r.chef_turno || "", lx[1] + lw / 2, y + 9.5, { align: "center" });
+  doc.text("Data: ____/____/________", lx[0] + lw / 2, y + 15, { align: "center" });
+  doc.text("Data: ____/____/________", lx[1] + lw / 2, y + 15, { align: "center" });
+  y += 26;
+  // Fotos, duas por linha
+  if (fotos.length) {
+    const urls = await urlsRnc(fotos);
+    const imgs = [];
+    for (const p of fotos) { try { imgs.push(await imagemParaPdf(urls[p])); } catch (_) {} }
+    novaPag(70);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.text(`Anexo: registro fotográfico (${imgs.length})`, M, y); y += 4;
+    const cw = (CW - 6) / 2, maxH = 78;
+    for (let i = 0; i < imgs.length; i += 2) {
+      const par = imgs.slice(i, i + 2).map((im) => { const k = Math.min(cw / im.w, maxH / im.h); return { ...im, dw: im.w * k, dh: im.h * k }; });
+      const alt = Math.max(...par.map((p) => p.dh));
+      novaPag(alt + 4);
+      par.forEach((p, j) => doc.addImage(p.data, "JPEG", M + j * (cw + 6) + (cw - p.dw) / 2, y, p.dw, p.dh));
+      y += alt + 4;
+    }
+    y += 3;
+  }
+  // Rodapé
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) {
+    doc.setPage(i); doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(120);
+    doc.text(`${r.numero} | Gerado em ${fmtDataHora(new Date().toISOString())} | Página ${i} de ${n}`, W / 2, 291, { align: "center" });
+  }
+  return doc.output("blob");
+}
+
+// --- Indicadores (gestão)
+["#ri-de", "#ri-ate", "#ri-destino"].forEach((s) => $(s).addEventListener("change", carregarIndRnc));
+async function carregarIndRnc() {
+  const de = $("#ri-de").value, ate = $("#ri-ate").value, dest = $("#ri-destino").value;
+  const [sols, rncs, itensT] = await Promise.all([
+    tudo(() => sb.from("v_rnc_solicitacoes").select("status,origem,solicitado_em,analise_iniciada_em,analisado_em").gte("solicitado_em", inicioDia(de)).lt("solicitado_em", inicioDia(addDias(ate, 1)))),
+    tudo(() => { let x = sb.from("v_rncs").select("id,dia,destino,ocasiao,status,retorno").is("excluido_em", null).gte("dia", de).lte("dia", ate); return dest ? x.in("destino", [dest, "CD/CP"]) : x; }),
+    tudo(() => sb.from("v_rnc_itens").select("rnc_id,produto_id,produto,origem,unidade,quantidade,problema,valor,dia").is("excluido_em", null).gte("dia", de).lte("dia", ate)),
+  ]);
+  const itens = itensT.filter((i) => !dest || i.origem === dest);
+  const solsF = sols.filter((s) => !dest || s.origem === dest);
+  const ids = new Set(rncs.map((r) => r.id));
+  const its = itens.filter((i) => ids.has(i.rnc_id));
+  const resolvidas = solsF.filter((s) => ["RNC_ABERTA", "RECUSADA"].includes(s.status));
+  const viraram = solsF.filter((s) => s.status === "RNC_ABERTA").length;
+  const pendentes = solsF.filter((s) => ["PENDENTE", "EM_ANALISE"].includes(s.status)).length;
+  const tempos = solsF.map((s) => s.analise_iniciada_em || s.analisado_em ? (new Date(s.analise_iniciada_em || s.analisado_em) - new Date(s.solicitado_em)) / 36e5 : null).filter((h) => h != null);
+  const tMed = tempos.length ? tempos.reduce((a, b) => a + b, 0) / tempos.length : null;
+  const valor = its.reduce((s, i) => s + (Number(i.valor) || 0), 0), semPreco = its.filter((i) => i.valor == null).length;
+  const aguard = rncs.filter((r) => r.status !== "ENCERRADA").length;
+  const nCD = rncs.filter((r) => r.destino !== "CP").length, nCP = rncs.filter((r) => r.destino !== "CD").length;
+  const fmtH = (h) => h == null ? "-" : h < 1 ? `${Math.round(h * 60)} min` : h < 48 ? `${fmtQtd(Math.round(h * 10) / 10)} h` : `${fmtQtd(Math.round(h / 2.4) / 10)} dias`;
+  $("#ri-cards").innerHTML = `
+    <div class="indicador"><span>RNCs abertas</span><strong>${rncs.length}</strong><small>CD ${nCD} | CP ${nCP}</small></div>
+    <div class="indicador ${valor > 0 ? "ruim" : ""}"><span>Valor envolvido</span><strong>${fmtR(valor)}</strong><small>${semPreco ? `${semPreco} itens sem preço` : "pelo preço cadastrado"}</small></div>
+    <div class="indicador ${aguard ? "ruim" : "bom"}"><span>Aguardando retorno</span><strong>${aguard}</strong><small>abertas ou enviadas, sem retorno</small></div>
+    <div class="indicador"><span>Solicitações recebidas</span><strong>${solsF.length}</strong><small>${pendentes} aguardando análise</small></div>
+    <div class="indicador"><span>Viraram RNC</span><strong>${resolvidas.length ? fmtPct(viraram / resolvidas.length * 100) : "-"}</strong><small>${viraram} de ${resolvidas.length} analisadas</small></div>
+    <div class="indicador"><span>Tempo de resposta</span><strong>${fmtH(tMed)}</strong><small>média da solicitação até a análise</small></div>`;
+  // Por semana
+  const sems = {}; for (let d = segunda(de); d <= ate; d = addDias(d, 7)) sems[d] = 0;
+  rncs.forEach((r) => { const s = segunda(r.dia); if (s in sems) sems[s]++; });
+  grafico("g-rnc-sem", { type: "bar", data: { labels: Object.keys(sems).map((d) => `S${semanaISO(d).semana} (${fmtData(d).slice(0, 5)})`),
+    datasets: [{ label: "RNCs", data: Object.values(sems), backgroundColor: COR.casco, borderRadius: 3 }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } } });
+  // Produtos
+  const porProd = {};
+  its.forEach((i) => {
+    const p = (porProd[i.produto_id] ??= { nome: i.produto, origem: i.origem, un: i.unidade, rncs: new Set(), qtd: 0, valor: 0, probs: {} });
+    p.rncs.add(i.rnc_id); p.qtd += Number(i.quantidade); p.valor += Number(i.valor) || 0; p.probs[i.problema] = (p.probs[i.problema] || 0) + 1;
+  });
+  const prods = Object.values(porProd).sort((a, b) => b.rncs.size - a.rncs.size || b.valor - a.valor);
+  $("#ri-prod").innerHTML = prods.length ? prods.slice(0, 15).map((p) => `<tr><td>${esc(p.nome)}</td><td>${esc(p.origem)}</td><td class="num">${p.rncs.size}</td>
+    <td class="num">${fmtQtd(p.qtd)} ${esc(p.un)}</td><td class="num">${fmtR(p.valor)}</td><td>${esc(Object.entries(p.probs).sort((a, b) => b[1] - a[1])[0][0])}</td></tr>`).join("")
+    : `<tr><td colspan="6" class="vazio">Nenhuma RNC no período.</td></tr>`;
+  const porProb = {};
+  its.forEach((i) => { const x = (porProb[i.problema] ??= { n: 0, v: 0 }); x.n++; x.v += Number(i.valor) || 0; });
+  const probs = Object.entries(porProb).sort((a, b) => b[1].n - a[1].n);
+  $("#ri-prob").innerHTML = probs.length ? probs.map(([k, x]) => `<tr><td>${esc(k)}</td><td class="num">${x.n}</td><td class="num">${fmtPct(x.n / its.length * 100)}</td><td class="num">${fmtR(x.v)}</td></tr>`).join("")
+    : `<tr><td colspan="4" class="vazio">-</td></tr>`;
+  const conta = (campo, nomes) => { const c = {}; rncs.forEach((r) => { if (r[campo]) c[r[campo]] = (c[r[campo]] || 0) + 1; });
+    const e = Object.entries(c).sort((a, b) => b[1] - a[1]);
+    return e.length ? e.map(([k, n]) => `<tr><td>${esc(nomes[k] || k)}</td><td class="num">${n}</td></tr>`).join("") : `<tr><td colspan="2" class="vazio">-</td></tr>`; };
+  $("#ri-oc").innerHTML = conta("ocasiao", NOME_OCASIAO);
+  $("#ri-ret").innerHTML = conta("retorno", NOME_RETORNO);
+}
 
 // ============================================================
 // CMV DE PROTEÍNAS (scorecard semanal)
