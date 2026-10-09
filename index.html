@@ -151,7 +151,8 @@ input.sugerido { background: #FBF3E6; border-color: var(--ambar); }
 .selo.just { background: #F7EBD7; color: var(--ambar); }
 .per-form { background: var(--papel); border: 1px solid var(--linha); border-radius: 6px; padding: 16px; max-width: 720px; margin-bottom: 24px; }
 .per-grade { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-@media (max-width: 640px) { .per-grade { grid-template-columns: 1fr; } }
+.grade-req { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .per-grade, .grade-req { grid-template-columns: 1fr; } }
 .per-un { font-size: 13px; color: var(--tinta-2); margin-top: 4px; min-height: 18px; }
 .sc-form { background: var(--papel); border: 1px solid var(--linha); border-radius: 6px; padding: 16px; margin-bottom: 24px; }
 .sc-form .tabela-wrap { margin-bottom: 12px; }
@@ -409,6 +410,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
 
   /* Janelas ocupam a tela inteira */
   dialog { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; }
+  dialog.dlg-peq { width: calc(100% - 24px); height: fit-content !important; min-height: 0 !important; max-height: calc(100dvh - 48px); margin: auto; border-radius: 10px; }
   dialog form { display: flex; flex-direction: column; height: 100%; }
   .modal-corpo { flex: 1; overflow-y: auto; padding: 14px 14px; }
   .modal-pe { padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px)); }
@@ -985,7 +987,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
     <div class="modal-cab"><h2 id="req-titulo">Nova requisição</h2></div>
     <div class="modal-corpo">
       <div id="aviso-extra" class="aviso extra oculto">Já existe retirada hoje. Esta será uma <strong>retirada extra</strong> e precisa de justificativa.</div>
-      <div class="per-grade" style="grid-template-columns:2fr 1fr">
+      <div class="grade-req">
         <div class="campo"><label for="req-resp">Chef de cozinha responsável</label><input id="req-resp" required autocomplete="off" placeholder="Quem pediu e acompanhou a retirada"></div>
         <div class="campo"><label for="req-data">Data e hora da retirada</label><input id="req-data" type="datetime-local" required></div>
       </div>
@@ -1004,6 +1006,15 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
       <button type="submit" class="btn" id="btn-salvar-req">Salvar e imprimir</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="modal-lancada" class="dlg-peq">
+  <div class="modal-cab"><h2>Requisição <span id="lancada-num"></span> lançada</h2></div>
+  <div class="modal-corpo"><p style="margin:0">Imprima, assine e preencha o horário da retirada. Depois o chef assina e você anexa o scan.</p></div>
+  <div class="modal-pe">
+    <button type="button" class="btn sec" id="lancada-fechar">Imprimir depois</button>
+    <button type="button" class="btn" id="lancada-imprimir">Imprimir agora</button>
+  </div>
 </dialog>
 
 <dialog id="modal-folha">
@@ -1050,7 +1061,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-08.3";
+const VERSAO = "2026-10-09.1";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -1095,7 +1106,10 @@ const addDias = (ymd, n) => { const d = new Date(ymd + "T12:00:00Z"); d.setUTCDa
 const nDias = (de, ate) => Math.round((new Date(ate + "T12:00:00Z") - new Date(de + "T12:00:00Z")) / 864e5) + 1;
 const isoParaInput = (iso) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
 const agoraInput = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
-const inputParaISO = (v) => (v ? new Date(v).toISOString() : new Date().toISOString());
+const inputParaISO = (v) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(v || "");
+  return (m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : new Date()).toISOString();
+};
 const fmtDataHora = (iso) => new Date(iso).toLocaleString("pt-BR", { timeZone: TZ, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const fmtData = (ymd) => ymd ? ymd.split("-").reverse().join("/") : "";
 const fmtQtd = (n) => n == null ? "" : Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
@@ -1713,7 +1727,7 @@ $("#form-folha").addEventListener("submit", (ev) => {
     </div>
     <table><thead><tr><th>Produto</th><th>Unidade</th><th>Qtd solicitada (chef)</th><th>Qtd retirada (estoquista)</th></tr></thead><tbody>${corpo}</tbody></table>
     <div class="assinaturas"><div>CHEF DE COZINHA</div><div>GESTÃO / ESTOQUISTA</div></div>`;
-  setTimeout(() => window.print(), 50);
+  window.print();
 });
 $("#btn-add-item").addEventListener("click", () => addItemLinha());
 
@@ -1734,14 +1748,24 @@ async function abrirNova(edit) {
   $("#req-titulo").textContent = "Lançar requisição";
   $("#btn-salvar-req").textContent = "Lançar e imprimir";
   $("#req-data").value = agoraInput();
-  const { count } = await sb.from("requisicoes").select("id", { count: "exact", head: true }).eq("dia", hojeSP()).is("excluido_em", null).neq("status", "RECUSADA");
+  $("#aviso-extra").classList.add("oculto"); $("#bloco-extra").classList.add("oculto"); $("#req-just").required = false;
+  addItemLinha();
+  $("#modal-req").showModal();
+  if (!matchMedia("(max-width: 900px)").matches) $("#req-resp").focus();
+  checarExtra();
+}
+async function checarExtra() {
+  if (E.reqEditando) return;
+  const dia = diaSP(inputParaISO($("#req-data").value));
+  const { count, error } = await sb.from("requisicoes").select("id", { count: "exact", head: true }).eq("dia", dia).is("excluido_em", null).neq("status", "RECUSADA");
+  if (error) return;
   const extra = (count || 0) > 0;
+  $("#aviso-extra").innerHTML = `Já existe retirada em ${fmtData(dia)}. Esta será uma <strong>retirada extra</strong> e precisa de justificativa.`;
   $("#aviso-extra").classList.toggle("oculto", !extra);
   $("#bloco-extra").classList.toggle("oculto", !extra);
   $("#req-just").required = extra;
-  addItemLinha();
-  $("#modal-req").showModal(); $("#req-resp").focus();
 }
+$("#req-data").addEventListener("change", checarExtra);
 
 function addItemLinha(produtoId = "", qtd = "") {
   const div = document.createElement("div");
@@ -1783,15 +1807,19 @@ $("#form-req").addEventListener("submit", async (ev) => {
     p_data_hora: inputParaISO($("#req-data").value),
   });
   btn.disabled = false;
-  if (error) return ($("#req-erro").textContent = msgErro(error));
+  if (error) {
+    if (/justificativa/i.test(error.message || "")) { $("#bloco-extra").classList.remove("oculto"); $("#req-just").required = true; }
+    return ($("#req-erro").textContent = msgErro(error));
+  }
   $("#modal-req").close();
-  toast(`Requisição ${data.numero} lançada. Imprima, assine e leve para o chef assinar.`);
   const just = E.justificativas.find((j) => j.id === data.justificativa_extra_id);
-  imprimir({ ...data, justificativa_extra: just?.nome, criado_por_nome: E.perfil.nome }, itens.map((i) => ({ quantidade: i.quantidade, produtos: E.produtos.find((p) => p.id === i.produto_id) })));
+  imprimir({ ...data, justificativa_extra: just?.nome, criado_por_nome: E.perfil.nome }, itens.map((i) => ({ quantidade: i.quantidade, produtos: E.produtos.find((p) => p.id === i.produto_id) })), false);
+  $("#lancada-num").textContent = data.numero;
+  $("#modal-lancada").showModal();
   carregarRequisicoes();
 });
 
-function imprimir(r, itens) {
+function imprimir(r, itens, jaImprimir = true) {
   $("#impressao").className = "";
   $("#impressao").innerHTML = `
     <div class="imp-cab"><div><h1>Requisição de retirada</h1><div>Câmara principal → câmara da cozinha<br>Ilha do Caranguejo</div></div>
@@ -1805,26 +1833,32 @@ function imprimir(r, itens) {
     <table><thead><tr><th>Produto</th><th>Unidade</th><th class="num">Quantidade</th></tr></thead>
       <tbody>${itens.map((i) => `<tr><td>${esc(i.produtos?.nome)}</td><td>${esc(i.produtos?.unidade)}</td><td class="num">${fmtQtd(i.quantidade)}</td></tr>`).join("")}</tbody></table>
     <div class="assinaturas"><div>CHEF DE COZINHA</div><div>GESTÃO / ESTOQUISTA</div></div>`;
-  setTimeout(() => window.print(), 50);
+  if (jaImprimir) window.print();
 }
+$("#lancada-imprimir").addEventListener("click", () => { $("#modal-lancada").close(); window.print(); });
+$("#lancada-fechar").addEventListener("click", () => $("#modal-lancada").close());
 
 $("#input-scan").addEventListener("change", async (ev) => {
   const f = ev.target.files[0], r = E.reqScanAlvo;
   if (!f || !r) return;
   if (f.size > 10 * 1024 * 1024) return toast("Arquivo acima de 10 MB. Reduza a resolução do scan.");
-  const ext = (f.name.split(".").pop() || "pdf").toLowerCase();
+  const TIPOS = { "image/jpeg": "jpg", "image/png": "png", "image/heic": "heic", "image/heif": "heif", "image/webp": "webp", "application/pdf": "pdf" };
+  const nomeExt = /\.([a-z0-9]{2,5})$/i.exec(f.name || "");
+  const ext = (TIPOS[f.type] || (nomeExt && nomeExt[1]) || "jpg").toLowerCase();
   const path = `${r.dia.slice(0, 7)}/${r.numero}_${Date.now()}.${ext}`;
   toast("Enviando scan…");
-  const up = await sb.storage.from(BUCKET).upload(path, f, { contentType: f.type });
+  const up = await sb.storage.from(BUCKET).upload(path, f, { contentType: f.type || (ext === "pdf" ? "application/pdf" : "image/" + (ext === "jpg" ? "jpeg" : ext)) });
   if (up.error) return toast(msgErro(up.error));
   const { error } = await sb.rpc("anexar_scan", { p_requisicao: r.id, p_path: path });
   if (error) return toast(msgErro(error));
   toast(`Scan anexado à ${r.numero}.`); carregarRequisicoes();
 });
 async function verScan(r) {
+  const w = window.open("", "_blank");
+  if (w) { try { w.document.title = "Carregando scan…"; w.document.body.textContent = "Carregando scan…"; } catch (_) {} }
   const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(r.scan_path, 300);
-  if (error) return toast(msgErro(error));
-  window.open(data.signedUrl, "_blank", "noopener");
+  if (error) { if (w) w.close(); return toast(msgErro(error)); }
+  if (w) { w.opener = null; w.location.href = data.signedUrl; } else location.href = data.signedUrl;
 }
 
 // Exclusão lógica genérica (gestão)
