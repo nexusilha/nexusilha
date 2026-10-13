@@ -465,9 +465,8 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
         <div class="menu-lista">
           <button data-aba="requisicoes">Requisições <span id="nav-req-badge"></span></button>
           <button data-aba="contagem">Contagem</button>
-          <button data-aba="saidas">Saídas</button>
+          <button data-aba="saidas">Saídas <span id="nav-dev-badge"></span></button>
           <button data-aba="entradas">Entradas</button>
-          <button data-aba="devolucoes">Devoluções <span id="nav-dev-badge"></span></button>
         </div>
       </div>
       <div class="menu" data-lider>
@@ -823,15 +822,19 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
     <!-- SAÍDAS -->
     <section id="aba-saidas" class="oculto">
       <div class="topo-secao"><h2>Saídas da cozinha</h2></div>
+      <div id="dv-pendentes-box" class="oculto">
+        <h3>Devoluções aguardando aprovação <span id="dv-pend-n" class="selo pend"></span></h3>
+        <div class="tabela-wrap"><table><thead><tr><th>Nº</th><th>Data e hora</th><th>Itens</th><th>Motivo</th><th>Solicitado por</th><th></th></tr></thead><tbody id="dv-pendentes"></tbody></table></div>
+      </div>
       <div class="filtros">
         <div class="campo"><label for="sai-tipo">Tipo de saída</label><select id="sai-tipo"></select></div>
         <div class="campo"><label for="sai-data">Data e hora</label><input type="datetime-local" id="sai-data"></div>
         <div class="campo"><label for="sai-busca">Buscar produto</label><input id="sai-busca" placeholder="Nome"></div>
         <label class="chk"><input type="checkbox" id="sai-criticos" checked> Só itens críticos</label>
       </div>
-      <p class="dica">Venda é o consumo teórico. Informe a quantidade de cada produto que saiu da cozinha.</p>
+      <p class="dica" id="sai-dica">Venda é o consumo teórico. Informe a quantidade de cada produto que saiu da cozinha.</p>
       <div class="tabela-wrap"><table><thead><tr><th>Produto</th><th>Unidade</th><th class="num">Quantidade</th></tr></thead><tbody id="sai-grid"></tbody></table></div>
-      <div class="campo"><label for="sai-obs">Observação (opcional)</label><input id="sai-obs"></div>
+      <div class="campo"><label for="sai-obs" id="sai-obs-lbl">Observação (opcional)</label><input id="sai-obs"></div>
       <div class="barra-acao"><span id="sai-resumo" class="dica" style="margin:0"></span><button class="btn" id="sai-salvar">Lançar saídas</button></div>
       <h3 style="margin-top:24px">Saídas lançadas</h3>
       <div class="filtros"><div class="campo"><label for="sai-filtro-dia">Dia</label><input type="date" id="sai-filtro-dia"></div></div>
@@ -852,30 +855,6 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
       <h3 style="margin-top:24px">Entradas lançadas</h3>
       <div class="filtros"><div class="campo"><label for="ent-filtro-dia">Dia</label><input type="date" id="ent-filtro-dia"></div></div>
       <div class="tabela-wrap"><table><thead><tr><th>Data e hora</th><th>Produto</th><th class="num">Qtd</th><th>Obs.</th><th></th></tr></thead><tbody id="ent-lista"></tbody></table></div>
-    </section>
-
-    <!-- DEVOLUÇÕES -->
-    <section id="aba-devolucoes" class="oculto">
-      <div class="topo-secao"><h2>Devolução para a câmara principal</h2></div>
-      <p class="dica" id="dv-dica"></p>
-      <div id="dv-pendentes-box" class="oculto">
-        <h3>Aguardando aprovação <span id="dv-pend-n" class="selo pend"></span></h3>
-        <div class="tabela-wrap"><table><thead><tr><th>Nº</th><th>Data e hora</th><th>Itens</th><th>Motivo</th><th>Solicitado por</th><th></th></tr></thead><tbody id="dv-pendentes"></tbody></table></div>
-      </div>
-      <h3>Nova devolução</h3>
-      <div class="filtros">
-        <div class="campo"><label for="dv-data">Data e hora</label><input type="datetime-local" id="dv-data"></div>
-        <div class="campo"><label for="dv-busca">Buscar produto</label><input id="dv-busca" placeholder="Nome"></div>
-      </div>
-      <div class="tabela-wrap"><table><thead><tr><th>Produto</th><th>Unidade</th><th class="num">Quantidade devolvida</th></tr></thead><tbody id="dv-grid"></tbody></table></div>
-      <div class="campo"><label for="dv-motivo">Motivo da devolução (obrigatório)</label><input id="dv-motivo" placeholder="Ex.: sobra do fim de semana, retirada a mais, produto não usado"></div>
-      <div class="barra-acao"><span id="dv-resumo" class="dica" style="margin:0"></span><button class="btn" id="dv-salvar">Devolver para a câmara</button></div>
-      <h3 style="margin-top:24px">Histórico de devoluções</h3>
-      <div class="filtros">
-        <div class="campo"><label for="dv-filtro-ini">De</label><input type="date" id="dv-filtro-ini"></div>
-        <div class="campo"><label for="dv-filtro-fim">Até</label><input type="date" id="dv-filtro-fim"></div>
-      </div>
-      <div class="tabela-wrap"><table><thead><tr><th>Nº</th><th>Data e hora</th><th>Itens</th><th>Motivo</th><th>Situação</th><th>Por</th><th></th></tr></thead><tbody id="dv-lista"></tbody></table></div>
     </section>
 
     <!-- DESVIOS -->
@@ -1295,7 +1274,7 @@ const isGestor = () => E.perfil?.papel === "GESTOR";
 const isLider = () => E.perfil?.papel === "LIDER";
 // Páginas por perfil (gestão vê tudo). Fora da gestão, desvios, estoque, movimentação, CMV e preços são só leitura.
 const PERMISSOES = {
-  ESTOQUISTA: ["painel", "requisicoes", "contagem", "saidas", "entradas", "devolucoes", "perdas", "rnc", "desvios", "saldos", "extrato", "scorecard", "precos"],
+  ESTOQUISTA: ["painel", "requisicoes", "contagem", "saidas", "entradas", "perdas", "rnc", "desvios", "saldos", "extrato", "scorecard", "precos"],
   LIDER: ["requisicoes", "perdas", "processos", "rnc", "desvios", "saldos", "extrato", "scorecard", "precos"],
 };
 const podeAbrir = (aba) => isGestor() || (PERMISSOES[E.perfil?.papel] || []).includes(aba);
@@ -1520,7 +1499,9 @@ async function carregarCadastros() {
   $("#per-produto").innerHTML = opcoesProdutos($("#per-produto").value);
   $("#trat-f-causa").innerHTML = `<option value="">Selecione</option>` + E.causas.filter((x) => x.ativo).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
   $("#req-just").innerHTML = `<option value="">Selecione</option>` + E.justificativas.filter((x) => x.ativo).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
-  $("#sai-tipo").innerHTML = E.tipos.filter((x) => x.ativo).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
+  $("#sai-tipo").innerHTML = E.tipos.filter((x) => x.ativo).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("")
+    + `<option value="DEV">Devolução para a câmara principal</option>`;
+  ajustarTipoSaida();
   $("#ext-produto").innerHTML = opcoesProdutos($("#ext-produto").value, E.todosProdutos);
   $("#lista-categorias").innerHTML = [...new Set(E.todosProdutos.map((x) => x.categoria))].map((c) => `<option value="${esc(c)}">`).join("");
   prepararRnc();
@@ -2178,7 +2159,18 @@ $("#cont-lista").addEventListener("click", (ev) => {
 // ============================================================
 // SAÍDAS
 // ============================================================
-carregadores.saidas = () => { $("#sai-data").value = agoraInput(); carregarSaidas(); };
+carregadores.saidas = () => { $("#sai-data").value = agoraInput(); ajustarTipoSaida(); carregarSaidas(); };
+const ehDevolucao = () => $("#sai-tipo").value === "DEV";
+function ajustarTipoSaida() {
+  const dev = ehDevolucao();
+  $("#sai-dica").textContent = !dev ? "Venda é o consumo teórico. Informe a quantidade de cada produto que saiu da cozinha."
+    : isGestor() ? "Devolução: a mercadoria sai da câmara da cozinha e volta para a câmara principal assim que você lança."
+    : "Devolução: sua solicitação vai para a gestão aprovar. Só depois de aprovada a mercadoria volta para a câmara principal.";
+  $("#sai-obs-lbl").textContent = dev ? "Motivo da devolução (obrigatório)" : "Observação (opcional)";
+  $("#sai-obs").placeholder = dev ? "Ex.: sobra do fim de semana, retirada a mais" : "";
+  $("#sai-salvar").textContent = !dev ? "Lançar saídas" : isGestor() ? "Devolver para a câmara principal" : "Solicitar devolução";
+}
+$("#sai-tipo").addEventListener("change", ajustarTipoSaida);
 function montarSaidas() {
   const lista = $("#sai-criticos").checked ? E.produtos.filter((p) => p.critico) : E.produtos;
   montarGrade($("#sai-grid"), lista); $("#sai-resumo").textContent = "";
@@ -2191,6 +2183,7 @@ $("#sai-filtro-dia").addEventListener("change", carregarSaidas);
 $("#sai-salvar").addEventListener("click", async () => {
   const itens = lerGrade($("#sai-grid"), false);
   if (!itens.length) return toast("Preencha ao menos uma quantidade.");
+  if (ehDevolucao()) return salvarDevolucao(itens);
   const tipo = E.tipos.find((t) => t.id === Number($("#sai-tipo").value));
   if (!confirm(`Lançar ${itens.length} saídas do tipo "${tipo?.nome}"?`)) return;
   const dh = inputParaISO($("#sai-data").value), obs = $("#sai-obs").value.trim() || null;
@@ -2204,13 +2197,26 @@ $("#sai-salvar").addEventListener("click", async () => {
 
 async function carregarSaidas() {
   const dia = $("#sai-filtro-dia").value || hojeSP();
-  const lista = await q(sb.from("v_saidas").select("*").eq("dia", dia).order("data_hora", { ascending: false }));
-  $("#sai-lista").innerHTML = lista.length ? lista.map((s) => `<tr><td>${fmtDataHora(s.data_hora)}</td><td>${esc(s.nome)}</td><td>${esc(s.tipo)}</td>
-    <td class="num">${fmtQtd(s.quantidade)} ${esc(s.unidade)}</td><td>${esc(s.observacao)}</td>
-    <td>${isGestor() ? `<div class="acoes"><button class="btn sec peq" data-editar="${s.id}" data-qtd="${s.quantidade}">Editar</button><button class="btn perigo peq" data-excluir="${s.id}">Excluir</button></div>` : ""}</td></tr>`).join("")
-    : `<tr><td colspan="6" class="vazio">Nenhuma saída neste dia.</td></tr>`;
+  const ini = new Date(dia + "T00:00:00-03:00").toISOString(), fim = new Date(addDias(dia, 1) + "T00:00:00-03:00").toISOString();
+  const [lista, devs] = await Promise.all([
+    q(sb.from("v_saidas").select("*").eq("dia", dia).order("data_hora", { ascending: false })),
+    q(sb.from("devolucoes").select(SEL_DEV).is("excluido_em", null).neq("status", "PENDENTE").gte("data_hora", ini).lt("data_hora", fim)),
+  ]);
+  carregarDevPendentes();
+  const linhas = [
+    ...lista.map((s) => ({ t: s.data_hora, html: `<tr><td data-label="Data e hora">${fmtDataHora(s.data_hora)}</td><td data-label="Produto">${esc(s.nome)}</td><td data-label="Tipo">${esc(s.tipo)}</td>
+    <td class="num" data-label="Qtd">${fmtQtd(s.quantidade)} ${esc(s.unidade)}</td><td data-label="Obs.">${esc(s.observacao)}</td>
+    <td data-label="">${isGestor() ? `<div class="acoes"><button class="btn sec peq" data-editar="${s.id}" data-qtd="${s.quantidade}">Editar</button><button class="btn perigo peq" data-excluir="${s.id}">Excluir</button></div>` : ""}</td></tr>` })),
+    ...devs.map((d) => ({ t: d.data_hora, html: `<tr><td data-label="Data e hora">${fmtDataHora(d.data_hora)}</td><td data-label="Produto">${itensDev(d)}</td>
+    <td data-label="Tipo">Devolução p/ câmara principal<div class="dica" style="margin:2px 0 0">${esc(d.numero)}</div></td>
+    <td class="num" data-label="Situação"><span class="selo ${CLS_ST_DEV[d.status]}">${NOME_ST_DEV[d.status]}</span></td>
+    <td data-label="Obs.">${esc(d.motivo)}${d.motivo_recusa ? `<div class="dica" style="margin:2px 0 0">Recusa: ${esc(d.motivo_recusa)}</div>` : ""}${d.solicitado_por_nome ? `<div class="dica" style="margin:2px 0 0">Por ${esc(d.solicitado_por_nome)}</div>` : ""}</td>
+    <td data-label="">${isGestor() ? `<button class="btn perigo peq" data-dv-excluir="${d.id}" data-num="${esc(d.numero)}">Excluir</button>` : ""}</td></tr>` })),
+  ].sort((x, y) => new Date(y.t) - new Date(x.t));
+  $("#sai-lista").innerHTML = linhas.length ? linhas.map((l) => l.html).join("") : `<tr><td colspan="6" class="vazio">Nenhuma saída neste dia.</td></tr>`;
 }
 $("#sai-lista").addEventListener("click", (ev) => {
+  if (ev.target.closest("[data-dv-excluir]")) return acaoDev(ev);
   const e = ev.target.closest("[data-editar]"), x = ev.target.closest("[data-excluir]");
   if (e) editarQuantidade("saidas", e.dataset.editar, e.dataset.qtd, carregarSaidas);
   if (x) excluirRegistro("saidas", x.dataset.excluir, "esta saída", carregarSaidas);
@@ -2264,48 +2270,30 @@ $("#ent-lista").addEventListener("click", (ev) => {
 });
 
 // ============================================================
-// DEVOLUÇÕES (câmara da cozinha -> câmara principal)
-// Gestão lança direto; estoquista solicita e a gestão aprova. Chefs não acessam.
+// DEVOLUÇÕES (dentro de Saídas: câmara da cozinha -> câmara principal)
+// Gestão lança direto; estoquista solicita e a gestão aprova. Chefs não acessam Saídas.
 // ============================================================
 const NOME_ST_DEV = { PENDENTE: "Aguardando aprovação", APROVADA: "Devolvida", RECUSADA: "Recusada" };
 const CLS_ST_DEV = { PENDENTE: "pend", APROVADA: "ok", RECUSADA: "ruim" };
-carregadores.devolucoes = () => {
-  $("#dv-data").value = agoraInput();
-  if (!$("#dv-filtro-fim").value) { $("#dv-filtro-fim").value = hojeSP(); $("#dv-filtro-ini").value = addDias(hojeSP(), -14); }
-  $("#dv-salvar").textContent = isGestor() ? "Devolver para a câmara" : "Solicitar devolução";
-  $("#dv-dica").textContent = isGestor()
-    ? "A mercadoria sai da câmara da cozinha e volta para a câmara principal na hora em que você lança. Solicitações do estoquista aparecem aqui para aprovar."
-    : "Sua solicitação vai para a gestão aprovar. Só depois de aprovada a mercadoria sai da câmara da cozinha e volta para a principal.";
-  if (!$("#dv-grid").children.length) montarGrade($("#dv-grid"), E.produtos);
-  carregarDevolucoes();
-};
-$("#dv-busca").addEventListener("input", (e) => filtrarGrade($("#dv-grid"), e.target.value));
-$("#dv-grid").addEventListener("input", () => contarGrade($("#dv-grid"), "#dv-resumo", "produtos preenchidos"));
-$("#dv-filtro-ini").addEventListener("change", carregarDevolucoes);
-$("#dv-filtro-fim").addEventListener("change", carregarDevolucoes);
-
-$("#dv-salvar").addEventListener("click", async () => {
-  const itens = lerGrade($("#dv-grid"), false);
-  if (!itens.length) return toast("Preencha ao menos uma quantidade.");
-  const motivo = $("#dv-motivo").value.trim();
-  if (!motivo) { $("#dv-motivo").focus(); return toast("Informe o motivo da devolução."); }
+const SEL_DEV = "id,numero,data_hora,motivo,status,solicitado_por,solicitado_por_nome,analisado_por_nome,analisado_em,motivo_recusa,devolucao_itens(quantidade,excluido_em,produtos(nome,unidade))";
+async function salvarDevolucao(itens) {
+  const motivo = $("#sai-obs").value.trim();
+  if (!motivo) { $("#sai-obs").focus(); return toast("Informe o motivo da devolução."); }
   const txt = isGestor() ? `Devolver ${itens.length} produto(s) da câmara da cozinha para a câmara principal?` : `Enviar solicitação de devolução de ${itens.length} produto(s) para a gestão aprovar?`;
   if (!confirm(txt)) return;
-  const btn = $("#dv-salvar"); btn.disabled = true;
-  const { data, error } = await sb.rpc("criar_devolucao", { p_itens: itens, p_motivo: motivo, p_data_hora: inputParaISO($("#dv-data").value), p_nome: E.perfil.nome });
+  const dh = inputParaISO($("#sai-data").value);
+  const btn = $("#sai-salvar"); btn.disabled = true;
+  const { data, error } = await sb.rpc("criar_devolucao", { p_itens: itens, p_motivo: motivo, p_data_hora: dh, p_nome: E.perfil.nome });
   btn.disabled = false;
   if (error) return toast(msgErro(error));
   toast(data.status === "APROVADA" ? `${data.numero}: mercadoria devolvida para a câmara principal.` : `${data.numero} enviada para aprovação da gestão.`);
-  montarGrade($("#dv-grid"), E.produtos); $("#dv-resumo").textContent = ""; $("#dv-motivo").value = ""; $("#dv-busca").value = "";
-  carregarDevolucoes();
-});
-
+  montarSaidas(); $("#sai-obs").value = ""; $("#sai-filtro-dia").value = diaSP(dh); carregarSaidas();
+}
 function itensDev(d) {
   return `<ul class="itens-lista">${(d.devolucao_itens || []).filter((i) => !i.excluido_em).map((i) => `<li>${esc(i.produtos?.nome)} — <b>${fmtQtd(i.quantidade)} ${esc(i.produtos?.unidade)}</b></li>`).join("")}</ul>`;
 }
-async function carregarDevolucoes() {
-  const sel = "id,numero,data_hora,motivo,status,solicitado_por,solicitado_por_nome,analisado_por_nome,analisado_em,motivo_recusa,devolucao_itens(quantidade,excluido_em,produtos(nome,unidade))";
-  const pend = await q(sb.from("devolucoes").select(sel).is("excluido_em", null).eq("status", "PENDENTE").order("data_hora", { ascending: true }));
+async function carregarDevPendentes() {
+  const pend = await q(sb.from("devolucoes").select(SEL_DEV).is("excluido_em", null).eq("status", "PENDENTE").order("data_hora", { ascending: true }));
   const meuId = E.perfil.id;
   $("#dv-pendentes-box").classList.toggle("oculto", !pend.length);
   $("#dv-pend-n").textContent = pend.length || "";
@@ -2315,17 +2303,6 @@ async function carregarDevolucoes() {
       ? `<button class="btn peq" data-dv-aprovar="${d.id}">Aprovar</button><button class="btn perigo peq" data-dv-recusar="${d.id}" data-num="${esc(d.numero)}">Recusar</button>`
       : (d.solicitado_por === meuId ? `<button class="btn perigo peq" data-dv-cancelar="${d.id}" data-num="${esc(d.numero)}">Cancelar</button>` : "")}</div></td></tr>`).join("");
   atualizarBadgeDev(pend.length);
-
-  const ini = $("#dv-filtro-ini").value || addDias(hojeSP(), -14), fim = $("#dv-filtro-fim").value || hojeSP();
-  const lista = await q(sb.from("devolucoes").select(sel).is("excluido_em", null).neq("status", "PENDENTE")
-    .gte("data_hora", new Date(ini + "T00:00:00-03:00").toISOString()).lt("data_hora", new Date(addDias(fim, 1) + "T00:00:00-03:00").toISOString())
-    .order("data_hora", { ascending: false }));
-  $("#dv-lista").innerHTML = lista.length ? lista.map((d) => `<tr><td data-label="Nº"><span class="numero-req">${esc(d.numero)}</span></td><td data-label="Data e hora">${fmtDataHora(d.data_hora)}</td>
-    <td data-label="Itens">${itensDev(d)}</td><td data-label="Motivo">${esc(d.motivo)}${d.motivo_recusa ? `<div class="dica" style="margin:4px 0 0">Recusa: ${esc(d.motivo_recusa)}</div>` : ""}</td>
-    <td data-label="Situação"><span class="selo ${CLS_ST_DEV[d.status]}">${NOME_ST_DEV[d.status]}</span></td>
-    <td data-label="Por">${esc(d.solicitado_por_nome || "")}${d.analisado_por_nome && d.analisado_por_nome !== d.solicitado_por_nome ? `<div class="dica" style="margin:0">Analisado: ${esc(d.analisado_por_nome)}</div>` : ""}</td>
-    <td data-label="">${isGestor() ? `<button class="btn perigo peq" data-dv-excluir="${d.id}" data-num="${esc(d.numero)}">Excluir</button>` : ""}</td></tr>`).join("")
-    : `<tr><td colspan="7" class="vazio">Nenhuma devolução no período.</td></tr>`;
 }
 function atualizarBadgeDev(n) { $("#nav-dev-badge").innerHTML = isGestor() && n ? `<span class="selo pend">${n}</span>` : ""; }
 async function contarDevPendentes() {
@@ -2354,10 +2331,9 @@ async function acaoDev(ev) {
     if (!res.error) toast("Devolução excluída. Estoque recalculado.");
   } else return;
   if (res.error) return toast(msgErro(res.error));
-  carregarDevolucoes();
+  carregarSaidas();
 }
 $("#dv-pendentes").addEventListener("click", acaoDev);
-$("#dv-lista").addEventListener("click", acaoDev);
 
 // ============================================================
 // DESVIOS
