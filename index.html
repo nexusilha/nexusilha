@@ -2676,15 +2676,15 @@ function renderSaldos() {
     if (p.categoria !== cat) { if (cat !== null) html += `</div>`; cat = p.categoria; html += `<div class="cat-titulo">${esc(cat)}</div><div class="saldos">`; }
     const s = porProd[p.id];
     html += `<article class="saldo-card ${p.critico ? "critico" : ""}"><h4>${esc(p.nome)}</h4>
-      ${linha("Câmara principal", s.PRINCIPAL, p.unidade)}${linha("Cozinha na semana", s.COZINHA, p.unidade)}
-      <div class="saldo-rodape">Última contagem da câmara principal: ${ult(s.PRINCIPAL)}</div></article>`;
+      ${linha("Câmara principal", s.PRINCIPAL, p.unidade)}${linha("Câmara da cozinha", s.COZINHA, p.unidade)}
+      <div class="saldo-rodape">Inventário da principal: ${ult(s.PRINCIPAL)}<br>Inventário da cozinha: ${ult(s.COZINHA)}</div></article>`;
   });
-  $("#sal-semana").textContent = `"Cozinha na semana" é o total retirado para a cozinha desde segunda-feira (${fmtData(seg)}). Zera toda segunda.`;
+  $("#sal-semana").textContent = `Cada câmara parte do último inventário e soma as movimentações depois dele. Na cozinha: + retiradas da principal, − devoluções para a principal, − saídas lançadas. Produto ainda sem inventário na cozinha mostra só o retirado desde segunda (${fmtData(seg)}).`;
   $("#lista-saldos").innerHTML = html ? html + "</div>" : `<div class="vazio">Nenhum produto encontrado.</div>`;
   E.exp.saldos = {
     titulo: "Estoque atual", arquivo: "estoque", subtitulo: fmtDataHora(new Date().toISOString()),
     colunas: [{ k: "categoria", rotulo: "Categoria" }, { k: "nome", rotulo: "Produto" }, { k: "unidade", rotulo: "Un." },
-      { k: "principal", rotulo: "Câmara principal", num: true }, { k: "cozinha", rotulo: "Cozinha na semana", num: true }],
+      { k: "principal", rotulo: "Câmara principal", num: true }, { k: "cozinha", rotulo: "Câmara da cozinha", num: true }],
     linhas: ordenarProdutos(prods).map((p) => ({ categoria: p.categoria, nome: p.nome, unidade: p.unidade,
       principal: Number(porProd[p.id].PRINCIPAL?.saldo ?? 0), cozinha: Number(porProd[p.id].COZINHA?.saldo ?? 0) })),
   };
