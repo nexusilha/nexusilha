@@ -1397,7 +1397,7 @@ $("#form-login").addEventListener("submit", async (ev) => {
 });
 $("#btn-sair").addEventListener("click", async () => {
   try { localStorage.removeItem("nexus.operador"); } catch (e) {}
-  await sb.auth.signOut(); location.href = "https://nexusilha.github.io/";
+  await sb.auth.signOut({ scope: "local" }); location.href = "https://nexusilha.github.io/";
 });
 // Pessoa escolhida no portal NEXUS (login compartilhado por funcionários)
 function operadorNexus(userId) {
@@ -1416,7 +1416,7 @@ async function iniciar(user) {
   iniciando = true;
   try {
     const { data: perfil } = await sb.from("perfis").select("*").eq("id", user.id).maybeSingle();
-    if (!perfil || !perfil.ativo) { await sb.auth.signOut(); $("#login-erro").textContent = "Usuário sem perfil ativo. Fale com a gestão."; return; }
+    if (!perfil || !perfil.ativo) { await sb.auth.signOut({ scope: "local" }); $("#login-erro").textContent = "Usuário sem perfil ativo. Fale com a gestão."; return; }
     const op = operadorNexus(user.id);
     if (!op) {
       const f = await sb.schema("nexus").from("funcionarios").select("id", { count: "exact", head: true }).eq("login_id", user.id).eq("ativo", true);
