@@ -1125,8 +1125,27 @@ a.marca { text-decoration: none; color: inherit; cursor: pointer; }
 
 <dialog id="modal-ver-cont">
   <div class="modal-cab"><h2 id="vc-titulo">Contagem</h2><p class="dica" id="vc-info" style="margin:4px 0 0"></p></div>
-  <div class="modal-corpo"><div class="tabela-wrap" style="margin:0"><table><thead><tr><th>Produto</th><th class="num">Contado</th><th class="num">Esperado</th><th class="num">Desvio</th><th></th></tr></thead><tbody id="vc-lista"></tbody></table></div></div>
-  <div class="modal-pe"><button type="button" class="btn" id="vc-fechar">Fechar</button></div>
+  <div class="modal-corpo">
+    <div id="vc-ver"><div class="tabela-wrap" style="margin:0"><table><thead><tr><th>Produto</th><th class="num">Contado</th><th class="num">Esperado</th><th class="num">Desvio</th><th></th></tr></thead><tbody id="vc-lista"></tbody></table></div></div>
+    <div id="vc-edit" class="oculto">
+      <div class="aviso" style="margin-top:0">Ao salvar, o estoque e os desvios desta contagem e das seguintes são recalculados. Tudo fica registrado na auditoria.</div>
+      <div class="grade-req">
+        <div class="campo"><label for="vc-e-data">Data e hora</label><input type="datetime-local" id="vc-e-data"></div>
+        <div class="campo"><label for="vc-e-obs">Observação</label><input id="vc-e-obs"></div>
+      </div>
+      <div class="tabela-wrap" style="margin:0 0 12px"><table><thead><tr><th>Produto</th><th>Unidade</th><th class="num">Contado</th><th></th></tr></thead><tbody id="vc-e-lista"></tbody></table></div>
+      <div class="grade-req">
+        <div class="campo"><label for="vc-e-add">Incluir produto que faltou</label><select id="vc-e-add"></select></div>
+        <div class="campo"><label for="vc-e-motivo">Motivo da edição (obrigatório)</label><input id="vc-e-motivo" placeholder="Ex.: erro de digitação, item esquecido"></div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-pe">
+    <button type="button" class="btn sec oculto" id="vc-editar">Editar contagem</button>
+    <button type="button" class="btn sec oculto" id="vc-cancelar">Cancelar edição</button>
+    <button type="button" class="btn oculto" id="vc-salvar">Salvar alterações</button>
+    <button type="button" class="btn" id="vc-fechar">Fechar</button>
+  </div>
 </dialog>
 
 <dialog id="modal-lancada" class="dlg-peq">
@@ -2181,7 +2200,7 @@ async function carregarContagens() {
   const lista = await q(sb.from("contagens").select("id,local,tipo,data_hora,responsavel,perfis!contagens_responsavel_fkey(nome),contagem_itens(count)").is("excluido_em", null).order("data_hora", { ascending: false }).limit(15));
   $("#cont-lista").innerHTML = lista.length ? lista.map((c) => `<tr><td>${fmtDataHora(c.data_hora)}</td><td>${NOME_LOCAL[c.local]}</td><td>${NOME_TIPO_CONT[c.tipo]}</td>
     <td class="num">${c.contagem_itens?.[0]?.count ?? ""}</td><td>${esc(c.perfis?.nome)}</td>
-    <td><div class="acoes"><button class="btn sec peq" data-ver-cont="${c.id}">Ver</button>${isGestor() ? `<button class="btn perigo peq" data-excluir-cont="${c.id}">Excluir</button>` : ""}</div></td></tr>`).join("")
+    <td><div class="acoes"><button class="btn sec peq" data-ver-cont="${c.id}">${isGestor() ? "Ver / editar" : "Ver"}</button>${isGestor() ? `<button class="btn perigo peq" data-excluir-cont="${c.id}">Excluir</button>` : ""}</div></td></tr>`).join("")
     : `<tr><td colspan="6" class="vazio">Nenhuma contagem ainda.</td></tr>`;
 }
 $("#cont-lista").addEventListener("click", (ev) => {
@@ -2198,6 +2217,8 @@ async function verContagem(id) {
   const dv = await q(sb.from("v_desvios").select("produto_id,esperado,desvio,fora_tolerancia").eq("contagem_id", id));
   const mapDv = Object.fromEntries(dv.map((d) => [d.produto_id, d]));
   const ord = ordenarProdutos(itens.map((i) => ({ ...i, nome: i.produtos?.nome || "", categoria: i.produtos?.categoria || "" })));
+  E.contVendo = { cab, itens: ord };
+  modoEdicaoContagem(false);
   let cat = null;
   $("#vc-titulo").textContent = `Contagem ${NOME_TIPO_CONT[cab.tipo] || ""} · ${NOME_LOCAL[cab.local] || ""}`;
   $("#vc-info").textContent = `${fmtDataHora(cab.data_hora)} · ${cab.perfis?.nome || ""} · ${itens.length} item(ns)${cab.observacao ? " · " + cab.observacao : ""}`;
@@ -2214,6 +2235,69 @@ async function verContagem(id) {
   $("#modal-ver-cont").showModal();
 }
 $("#vc-fechar").addEventListener("click", () => $("#modal-ver-cont").close());
+
+// Edição de contagem (só gestão): quantidades, incluir/remover itens, data/hora e observação
+function modoEdicaoContagem(on) {
+  $("#vc-ver").classList.toggle("oculto", on);
+  $("#vc-edit").classList.toggle("oculto", !on);
+  $("#vc-editar").classList.toggle("oculto", on || !isGestor());
+  $("#vc-cancelar").classList.toggle("oculto", !on);
+  $("#vc-salvar").classList.toggle("oculto", !on);
+  $("#vc-fechar").classList.toggle("oculto", on);
+}
+function linhaEdicaoCont(pid, qtd) {
+  const p = E.todosProdutos.find((x) => x.id === pid) || {};
+  return `<tr data-pid="${pid}"><td data-label="Produto">${esc(p.nome || "")}</td><td data-label="Unidade">${esc(p.unidade || "")}</td>
+    <td class="num" data-label="Contado"><input class="qtd" type="text" inputmode="decimal" autocomplete="off" value="${numIn(qtd)}"></td>
+    <td data-label=""><button type="button" class="btn perigo peq" data-vc-rem>Remover</button></td></tr>`;
+}
+function atualizarOpcoesAddCont() {
+  const ja = new Set([...$$("#vc-e-lista tr[data-pid]")].map((tr) => tr.dataset.pid));
+  $("#vc-e-add").innerHTML = opcoesProdutos("", E.produtos.filter((p) => !ja.has(p.id))).replace('<option value="">Produto</option>', '<option value="">Selecione para incluir…</option>');
+}
+$("#vc-editar").addEventListener("click", () => {
+  const { cab, itens } = E.contVendo;
+  const d = new Date(cab.data_hora); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  $("#vc-e-data").value = d.toISOString().slice(0, 16);
+  $("#vc-e-obs").value = cab.observacao || "";
+  $("#vc-e-motivo").value = "";
+  $("#vc-e-lista").innerHTML = itens.map((i) => linhaEdicaoCont(i.produto_id, i.quantidade)).join("");
+  atualizarOpcoesAddCont();
+  modoEdicaoContagem(true);
+});
+$("#vc-cancelar").addEventListener("click", () => modoEdicaoContagem(false));
+$("#vc-e-lista").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-vc-rem]"); if (!b) return;
+  b.closest("tr").remove(); atualizarOpcoesAddCont();
+});
+$("#vc-e-add").addEventListener("change", (ev) => {
+  const pid = ev.target.value; if (!pid) return;
+  $("#vc-e-lista").insertAdjacentHTML("beforeend", linhaEdicaoCont(pid, null));
+  atualizarOpcoesAddCont();
+  $("#vc-e-lista tr:last-child input").focus();
+});
+$("#vc-salvar").addEventListener("click", async () => {
+  const linhas = [...$$("#vc-e-lista tr[data-pid]")];
+  if (!linhas.length) return toast("A contagem precisa de ao menos um item. Para apagar tudo, use Excluir.");
+  const itens = [];
+  for (const tr of linhas) {
+    const v = tr.querySelector("input").value.trim();
+    if (v === "") return toast("Preencha a quantidade de todos os itens (pode ser 0).");
+    const n = num(v);
+    if (!Number.isFinite(n) || n < 0) return toast("Quantidade inválida.");
+    itens.push({ produto_id: tr.dataset.pid, quantidade: n });
+  }
+  const motivo = $("#vc-e-motivo").value.trim();
+  if (!motivo) { $("#vc-e-motivo").focus(); return toast("Informe o motivo da edição."); }
+  if (!confirm("Salvar as alterações desta contagem? Estoque e desvios serão recalculados.")) return;
+  const btn = $("#vc-salvar"); btn.disabled = true;
+  const { error } = await sb.rpc("editar_contagem", { p_id: E.contVendo.cab.id, p_itens: itens, p_data_hora: inputParaISO($("#vc-e-data").value), p_observacao: $("#vc-e-obs").value, p_motivo: motivo });
+  btn.disabled = false;
+  if (error) return toast(msgErro(error));
+  toast("Contagem alterada. Estoque e desvios recalculados.");
+  await verContagem(E.contVendo.cab.id);
+  carregarContagens();
+});
 
 // ============================================================
 // SAÍDAS
