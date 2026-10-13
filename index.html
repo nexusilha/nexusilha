@@ -467,6 +467,7 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
           <button data-aba="contagem">Contagem</button>
           <button data-aba="saidas">Saídas</button>
           <button data-aba="entradas">Entradas</button>
+          <button data-aba="devolucoes">Devoluções <span id="nav-dev-badge"></span></button>
         </div>
       </div>
       <div class="menu" data-lider>
@@ -853,6 +854,30 @@ body:not(.eh-gestor) [data-ext-edit], body:not(.eh-gestor) [data-ext-del] { disp
       <div class="tabela-wrap"><table><thead><tr><th>Data e hora</th><th>Produto</th><th class="num">Qtd</th><th>Obs.</th><th></th></tr></thead><tbody id="ent-lista"></tbody></table></div>
     </section>
 
+    <!-- DEVOLUÇÕES -->
+    <section id="aba-devolucoes" class="oculto">
+      <div class="topo-secao"><h2>Devolução para a câmara principal</h2></div>
+      <p class="dica" id="dv-dica"></p>
+      <div id="dv-pendentes-box" class="oculto">
+        <h3>Aguardando aprovação <span id="dv-pend-n" class="selo pend"></span></h3>
+        <div class="tabela-wrap"><table><thead><tr><th>Nº</th><th>Data e hora</th><th>Itens</th><th>Motivo</th><th>Solicitado por</th><th></th></tr></thead><tbody id="dv-pendentes"></tbody></table></div>
+      </div>
+      <h3>Nova devolução</h3>
+      <div class="filtros">
+        <div class="campo"><label for="dv-data">Data e hora</label><input type="datetime-local" id="dv-data"></div>
+        <div class="campo"><label for="dv-busca">Buscar produto</label><input id="dv-busca" placeholder="Nome"></div>
+      </div>
+      <div class="tabela-wrap"><table><thead><tr><th>Produto</th><th>Unidade</th><th class="num">Quantidade devolvida</th></tr></thead><tbody id="dv-grid"></tbody></table></div>
+      <div class="campo"><label for="dv-motivo">Motivo da devolução (obrigatório)</label><input id="dv-motivo" placeholder="Ex.: sobra do fim de semana, retirada a mais, produto não usado"></div>
+      <div class="barra-acao"><span id="dv-resumo" class="dica" style="margin:0"></span><button class="btn" id="dv-salvar">Devolver para a câmara</button></div>
+      <h3 style="margin-top:24px">Histórico de devoluções</h3>
+      <div class="filtros">
+        <div class="campo"><label for="dv-filtro-ini">De</label><input type="date" id="dv-filtro-ini"></div>
+        <div class="campo"><label for="dv-filtro-fim">Até</label><input type="date" id="dv-filtro-fim"></div>
+      </div>
+      <div class="tabela-wrap"><table><thead><tr><th>Nº</th><th>Data e hora</th><th>Itens</th><th>Motivo</th><th>Situação</th><th>Por</th><th></th></tr></thead><tbody id="dv-lista"></tbody></table></div>
+    </section>
+
     <!-- DESVIOS -->
     <section id="aba-desvios" class="oculto">
       <div class="topo-secao"><h2>Desvios</h2></div>
@@ -1231,7 +1256,7 @@ const CAT_ORDEM = [
 const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const NOME_LOCAL = { COZINHA: "Cozinha", PRINCIPAL: "Câmara principal" };
 const NOME_TIPO_CONT = { DIARIA: "Diária", CHECK: "Check", GERAL: "Geral" };
-const NOME_TABELA = { entradas: "Entrada", saidas: "Saída", requisicoes: "Requisição", requisicao_itens: "Item de requisição",
+const NOME_TABELA = { devolucoes: "Devolução", devolucao_itens: "Item de devolução", entradas: "Entrada", saidas: "Saída", requisicoes: "Requisição", requisicao_itens: "Item de requisição",
   contagens: "Contagem", contagem_itens: "Item de contagem", produtos: "Produto", precos: "Preço", estoque_ideal: "Estoque ideal", perfis: "Usuário", desvio_tratativas: "Tratativa de desvio",
   perdas: "Perda", pracas: "Praça", categorias: "Categoria", processos: "Processo (rendimento)", fichas_processo: "Ficha de processo", scorecard_semanal: "CMV de proteínas (semana)", scorecard_itens: "CMV de proteínas (categoria)", scorecard_categorias: "Categoria do CMV" };
 const NOME_PAPEL = { GESTOR: "Gestão", ESTOQUISTA: "Estoquista", LIDER: "Líder de cozinha" };
@@ -1270,7 +1295,7 @@ const isGestor = () => E.perfil?.papel === "GESTOR";
 const isLider = () => E.perfil?.papel === "LIDER";
 // Páginas por perfil (gestão vê tudo). Fora da gestão, desvios, estoque, movimentação, CMV e preços são só leitura.
 const PERMISSOES = {
-  ESTOQUISTA: ["painel", "requisicoes", "contagem", "saidas", "entradas", "perdas", "rnc", "desvios", "saldos", "extrato", "scorecard", "precos"],
+  ESTOQUISTA: ["painel", "requisicoes", "contagem", "saidas", "entradas", "devolucoes", "perdas", "rnc", "desvios", "saldos", "extrato", "scorecard", "precos"],
   LIDER: ["requisicoes", "perdas", "processos", "rnc", "desvios", "saldos", "extrato", "scorecard", "precos"],
 };
 const podeAbrir = (aba) => isGestor() || (PERMISSOES[E.perfil?.papel] || []).includes(aba);
@@ -1437,7 +1462,7 @@ async function iniciar(user) {
     await carregarCadastros();
     prepararFormularios();
     abrirAba(podeAbrir("painel") ? "painel" : "requisicoes");
-    atualizarBadgeRnc();
+    atualizarBadgeRnc(); contarDevPendentes();
   } finally { iniciando = false; }
 }
 
@@ -2239,6 +2264,102 @@ $("#ent-lista").addEventListener("click", (ev) => {
 });
 
 // ============================================================
+// DEVOLUÇÕES (câmara da cozinha -> câmara principal)
+// Gestão lança direto; estoquista solicita e a gestão aprova. Chefs não acessam.
+// ============================================================
+const NOME_ST_DEV = { PENDENTE: "Aguardando aprovação", APROVADA: "Devolvida", RECUSADA: "Recusada" };
+const CLS_ST_DEV = { PENDENTE: "pend", APROVADA: "ok", RECUSADA: "ruim" };
+carregadores.devolucoes = () => {
+  $("#dv-data").value = agoraInput();
+  if (!$("#dv-filtro-fim").value) { $("#dv-filtro-fim").value = hojeSP(); $("#dv-filtro-ini").value = addDias(hojeSP(), -14); }
+  $("#dv-salvar").textContent = isGestor() ? "Devolver para a câmara" : "Solicitar devolução";
+  $("#dv-dica").textContent = isGestor()
+    ? "A mercadoria sai da câmara da cozinha e volta para a câmara principal na hora em que você lança. Solicitações do estoquista aparecem aqui para aprovar."
+    : "Sua solicitação vai para a gestão aprovar. Só depois de aprovada a mercadoria sai da câmara da cozinha e volta para a principal.";
+  if (!$("#dv-grid").children.length) montarGrade($("#dv-grid"), E.produtos);
+  carregarDevolucoes();
+};
+$("#dv-busca").addEventListener("input", (e) => filtrarGrade($("#dv-grid"), e.target.value));
+$("#dv-grid").addEventListener("input", () => contarGrade($("#dv-grid"), "#dv-resumo", "produtos preenchidos"));
+$("#dv-filtro-ini").addEventListener("change", carregarDevolucoes);
+$("#dv-filtro-fim").addEventListener("change", carregarDevolucoes);
+
+$("#dv-salvar").addEventListener("click", async () => {
+  const itens = lerGrade($("#dv-grid"), false);
+  if (!itens.length) return toast("Preencha ao menos uma quantidade.");
+  const motivo = $("#dv-motivo").value.trim();
+  if (!motivo) { $("#dv-motivo").focus(); return toast("Informe o motivo da devolução."); }
+  const txt = isGestor() ? `Devolver ${itens.length} produto(s) da câmara da cozinha para a câmara principal?` : `Enviar solicitação de devolução de ${itens.length} produto(s) para a gestão aprovar?`;
+  if (!confirm(txt)) return;
+  const btn = $("#dv-salvar"); btn.disabled = true;
+  const { data, error } = await sb.rpc("criar_devolucao", { p_itens: itens, p_motivo: motivo, p_data_hora: inputParaISO($("#dv-data").value), p_nome: E.perfil.nome });
+  btn.disabled = false;
+  if (error) return toast(msgErro(error));
+  toast(data.status === "APROVADA" ? `${data.numero}: mercadoria devolvida para a câmara principal.` : `${data.numero} enviada para aprovação da gestão.`);
+  montarGrade($("#dv-grid"), E.produtos); $("#dv-resumo").textContent = ""; $("#dv-motivo").value = ""; $("#dv-busca").value = "";
+  carregarDevolucoes();
+});
+
+function itensDev(d) {
+  return `<ul class="itens-lista">${(d.devolucao_itens || []).filter((i) => !i.excluido_em).map((i) => `<li>${esc(i.produtos?.nome)} — <b>${fmtQtd(i.quantidade)} ${esc(i.produtos?.unidade)}</b></li>`).join("")}</ul>`;
+}
+async function carregarDevolucoes() {
+  const sel = "id,numero,data_hora,motivo,status,solicitado_por,solicitado_por_nome,analisado_por_nome,analisado_em,motivo_recusa,devolucao_itens(quantidade,excluido_em,produtos(nome,unidade))";
+  const pend = await q(sb.from("devolucoes").select(sel).is("excluido_em", null).eq("status", "PENDENTE").order("data_hora", { ascending: true }));
+  const meuId = E.perfil.id;
+  $("#dv-pendentes-box").classList.toggle("oculto", !pend.length);
+  $("#dv-pend-n").textContent = pend.length || "";
+  $("#dv-pendentes").innerHTML = pend.map((d) => `<tr class="req-pendente"><td data-label="Nº"><span class="numero-req">${esc(d.numero)}</span></td><td data-label="Data e hora">${fmtDataHora(d.data_hora)}</td>
+    <td data-label="Itens">${itensDev(d)}</td><td data-label="Motivo">${esc(d.motivo)}</td><td data-label="Solicitado por">${esc(d.solicitado_por_nome || "")}</td>
+    <td data-label=""><div class="acoes">${isGestor()
+      ? `<button class="btn peq" data-dv-aprovar="${d.id}">Aprovar</button><button class="btn perigo peq" data-dv-recusar="${d.id}" data-num="${esc(d.numero)}">Recusar</button>`
+      : (d.solicitado_por === meuId ? `<button class="btn perigo peq" data-dv-cancelar="${d.id}" data-num="${esc(d.numero)}">Cancelar</button>` : "")}</div></td></tr>`).join("");
+  atualizarBadgeDev(pend.length);
+
+  const ini = $("#dv-filtro-ini").value || addDias(hojeSP(), -14), fim = $("#dv-filtro-fim").value || hojeSP();
+  const lista = await q(sb.from("devolucoes").select(sel).is("excluido_em", null).neq("status", "PENDENTE")
+    .gte("data_hora", new Date(ini + "T00:00:00-03:00").toISOString()).lt("data_hora", new Date(addDias(fim, 1) + "T00:00:00-03:00").toISOString())
+    .order("data_hora", { ascending: false }));
+  $("#dv-lista").innerHTML = lista.length ? lista.map((d) => `<tr><td data-label="Nº"><span class="numero-req">${esc(d.numero)}</span></td><td data-label="Data e hora">${fmtDataHora(d.data_hora)}</td>
+    <td data-label="Itens">${itensDev(d)}</td><td data-label="Motivo">${esc(d.motivo)}${d.motivo_recusa ? `<div class="dica" style="margin:4px 0 0">Recusa: ${esc(d.motivo_recusa)}</div>` : ""}</td>
+    <td data-label="Situação"><span class="selo ${CLS_ST_DEV[d.status]}">${NOME_ST_DEV[d.status]}</span></td>
+    <td data-label="Por">${esc(d.solicitado_por_nome || "")}${d.analisado_por_nome && d.analisado_por_nome !== d.solicitado_por_nome ? `<div class="dica" style="margin:0">Analisado: ${esc(d.analisado_por_nome)}</div>` : ""}</td>
+    <td data-label="">${isGestor() ? `<button class="btn perigo peq" data-dv-excluir="${d.id}" data-num="${esc(d.numero)}">Excluir</button>` : ""}</td></tr>`).join("")
+    : `<tr><td colspan="7" class="vazio">Nenhuma devolução no período.</td></tr>`;
+}
+function atualizarBadgeDev(n) { $("#nav-dev-badge").innerHTML = isGestor() && n ? `<span class="selo pend">${n}</span>` : ""; }
+async function contarDevPendentes() {
+  if (!isGestor()) return;
+  const { count } = await sb.from("devolucoes").select("id", { count: "exact", head: true }).is("excluido_em", null).eq("status", "PENDENTE");
+  atualizarBadgeDev(count || 0);
+}
+async function acaoDev(ev) {
+  const a = ev.target.closest("[data-dv-aprovar]"), r = ev.target.closest("[data-dv-recusar]"), c = ev.target.closest("[data-dv-cancelar]"), x = ev.target.closest("[data-dv-excluir]");
+  let res;
+  if (a) {
+    if (!confirm("Aprovar esta devolução? A mercadoria sai da câmara da cozinha e volta para a câmara principal.")) return;
+    res = await sb.rpc("aprovar_devolucao", { p_id: a.dataset.dvAprovar, p_nome: E.perfil.nome });
+    if (!res.error) toast("Devolução aprovada. Estoque recalculado.");
+  } else if (r) {
+    const m = prompt(`Recusar a ${r.dataset.num}?\n\nMotivo da recusa:`); if (!m || !m.trim()) return;
+    res = await sb.rpc("recusar_devolucao", { p_id: r.dataset.dvRecusar, p_motivo: m.trim(), p_nome: E.perfil.nome });
+    if (!res.error) toast("Devolução recusada.");
+  } else if (c) {
+    if (!confirm(`Cancelar a solicitação ${c.dataset.num}?`)) return;
+    res = await sb.rpc("excluir_devolucao", { p_id: c.dataset.dvCancelar, p_motivo: "Cancelada pelo solicitante" });
+    if (!res.error) toast("Solicitação cancelada.");
+  } else if (x) {
+    const m = prompt(`Excluir a ${x.dataset.num}? O estoque das duas câmaras volta a ser como antes dela.\n\nMotivo da exclusão:`); if (!m || !m.trim()) return;
+    res = await sb.rpc("excluir_devolucao", { p_id: x.dataset.dvExcluir, p_motivo: m.trim() });
+    if (!res.error) toast("Devolução excluída. Estoque recalculado.");
+  } else return;
+  if (res.error) return toast(msgErro(res.error));
+  carregarDevolucoes();
+}
+$("#dv-pendentes").addEventListener("click", acaoDev);
+$("#dv-lista").addEventListener("click", acaoDev);
+
+// ============================================================
 // DESVIOS
 // ============================================================
 carregadores.desvios = () => abrirDevSub($("#dev-nav [aria-selected='true']").dataset.dsub);
@@ -2464,7 +2585,7 @@ async function carregarExtrato() {
   let saldo = 0;
   rows.forEach((r) => { if (r.operacao === "CONTAGEM") saldo = Number(r.contado); else saldo += Number(r.delta); r.saldo = saldo; });
   const p = E.todosProdutos.find((x) => x.id === pid);
-  const nomeOp = { ENTRADA: "Entrada", TRANSFERENCIA: local === "COZINHA" ? "Requisição (entrou)" : "Requisição (saiu)", SAIDA: "Saída", CONTAGEM: "Contagem" };
+  const nomeOp = { ENTRADA: "Entrada", TRANSFERENCIA: local === "COZINHA" ? "Requisição (entrou)" : "Requisição (saiu)", SAIDA: "Saída", CONTAGEM: "Contagem", DEVOLUCAO: local === "COZINHA" ? "Devolução (saiu)" : "Devolução (voltou)" };
   const exib = [...rows].reverse();
   $("#ext-lista").innerHTML = exib.length ? exib.map((r) => {
     const detalhe = r.operacao === "CONTAGEM" ? NOME_TIPO_CONT[r.detalhe] || r.detalhe : r.detalhe;
