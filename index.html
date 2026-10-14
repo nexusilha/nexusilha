@@ -1525,7 +1525,7 @@ $("#logo-link").addEventListener("click", (ev) => {
   if (ev.button === 0 && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey) { ev.preventDefault(); location.reload(); }
 });
 $("#btn-sair").addEventListener("click", async () => {
-  try { localStorage.removeItem("nexus.operador"); } catch (e) {}
+  try { localStorage.removeItem("nexus.operador"); delete sb.rest.headers["x-funcionario-id"]; } catch (e) {}
   await sb.auth.signOut({ scope: "local" }); location.href = "https://nexusilha.github.io/";
 });
 // Pessoa escolhida no portal Gestão de Insumos (login compartilhado por funcionários)
@@ -1550,7 +1550,11 @@ async function iniciar(user) {
     if (!op) {
       const f = await sb.schema("nexus").from("funcionarios").select("id", { count: "exact", head: true }).eq("login_id", user.id).eq("ativo", true);
       if (f.count > 0) { location.replace("https://nexusilha.github.io/?m=cmv"); return; }
-    } else if (op.funcionario_id) perfil.nome = op.nome;
+    } else if (op.funcionario_id) {
+      perfil.nome = op.nome;
+      // o banco grava o nome desta pessoa em tudo que ela lançar (login compartilhado)
+      try { sb.rest.headers["x-funcionario-id"] = op.funcionario_id; } catch (e) {}
+    }
     E.perfil = perfil;
     const nomeExib = perfil.nome.trim().toLowerCase().split(/\s+/).map((x) => (["de", "da", "do", "dos", "das", "e"].includes(x) ? x : x[0].toUpperCase() + x.slice(1))).join(" ");
     $("#usuario-nome").innerHTML = `<strong title="${esc(nomeExib)}">${esc(nomeExib)}</strong><small>${NOME_PAPEL[perfil.papel] || esc(perfil.papel)}</small>`;
