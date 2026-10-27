@@ -2223,35 +2223,9 @@ $("#cont-salvar").addEventListener("click", async () => {
   if (!itens.length) return toast("Preencha ao menos um item.");
   const local = $("#cont-local").value, tipo = $("#cont-tipo").value;
   const btn = $("#cont-salvar");
-  let dh = inputParaISO($("#cont-data").value);
+  const dh = inputParaISO($("#cont-data").value);
 
-  if (!E.recont) {
-    // 1ª etapa: o servidor devolve só quais itens precisam ser recontados (contagem cega)
-    btn.disabled = true;
-    const { data: ids, error } = await sb.rpc("checar_recontagem", { p_local: local, p_itens: itens, p_data_hora: dh });
-    btn.disabled = false;
-    if (error) return toast(msgErro(error));
-    if (ids?.length) {
-      E.recont = { dh, primeiras: {} };
-      ids.forEach((id) => {
-        const inp = $(`#cont-grid input[data-id="${id}"]`);
-        E.recont.primeiras[id] = num(inp.value);
-        inp.value = ""; inp.closest("tr").classList.add("recontar");
-      });
-      const n = ids.length;
-      $("#cont-aviso").innerHTML = `<div class="aviso extra"><strong>${n === 1 ? "1 item precisa" : n + " itens precisam"} ser recontado${n === 1 ? "" : "s"}</strong> (destacado${n === 1 ? "" : "s"} em amarelo, com o campo limpo). De preferência, peça para outra pessoa contar. Preencha de novo e clique em salvar.</div>`;
-      btn.textContent = "Salvar com recontagem";
-      $("#cont-grid tr.recontar")?.scrollIntoView({ block: "center" });
-      $("#cont-grid tr.recontar input")?.focus();
-      return;
-    }
-  } else {
-    const falta = Object.keys(E.recont.primeiras).filter((id) => $(`#cont-grid input[data-id="${id}"]`)?.value === "");
-    if (falta.length) return toast("Preencha a recontagem dos itens destacados.");
-    itens.forEach((i) => { if (i.produto_id in E.recont.primeiras) i.quantidade_primeira = E.recont.primeiras[i.produto_id]; });
-    dh = E.recont.dh;
-  }
-
+  // Sem etapa de recontagem: salva direto
   if (!confirm(`Salvar contagem ${NOME_TIPO_CONT[tipo].toLowerCase()} da ${NOME_LOCAL[local].toLowerCase()} com ${itens.length} itens?`)) return;
   btn.disabled = true;
   const { data, error } = await sb.rpc("registrar_contagem", {
