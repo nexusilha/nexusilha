@@ -2235,15 +2235,6 @@ $("#cont-salvar").addEventListener("click", async () => {
   if (error) return toast(msgErro(error));
   toast("Contagem salva.");
   montarContagem(); $("#cont-obs").value = ""; $("#cont-data").value = agoraInput();
-  if (isGestor()) {
-    const dv = await q(sb.from("v_desvios").select("nome,unidade,esperado,contado,quantidade_primeira,desvio,desvio_valor,fora_tolerancia").eq("contagem_id", data.id).order("desvio", { ascending: false }));
-    $("#cont-resultado").innerHTML = dv.length ? `<h3 style="margin-top:20px">Resultado desta contagem</h3>
-      <div class="tabela-wrap"><table><thead><tr><th>Produto</th><th class="num">Esperado</th><th class="num">Contado</th><th class="num">Desvio</th><th class="num">R$</th><th></th></tr></thead><tbody>
-      ${dv.map((x) => `<tr><td>${esc(x.nome)}</td><td class="num">${fmtQtd(x.esperado)}</td><td class="num">${fmtQtd(x.contado)}${x.quantidade_primeira != null ? `<br><small class="dica">1ª contagem: ${fmtQtd(x.quantidade_primeira)}</small>` : ""}</td>
-        <td class="num ${clsNum(x.desvio)}">${fmtQtd(x.desvio)}</td><td class="num">${fmtR(x.desvio_valor)}</td>
-        <td>${x.fora_tolerancia ? `<span class="selo ruim">Fora da tolerância: tratativa aberta</span>` : `<span class="selo ok">OK</span>`}</td></tr>`).join("")}
-      </tbody></table></div>` : `<p class="dica">Primeira contagem destes itens neste local: ela vira a base para os próximos desvios.</p>`;
-  }
   carregarContagens();
 });
 
