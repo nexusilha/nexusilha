@@ -906,6 +906,11 @@ tr.critico td:first-child { box-shadow: inset 4px 0 0 #E55C0E !important; }
         <div class="campo"><label for="cont-busca">Buscar produto</label><input id="cont-busca" placeholder="Nome"></div>
       </div>
       <p class="dica">Contagem cega: o sistema não mostra o estoque esperado. Deixe em branco o que não foi contado; digite 0 para o que acabou.</p>
+      <div class="per-form oculto" id="cont-conf-box" style="max-width:none;padding:12px 16px">
+        <label class="chk" style="padding:0"><input type="checkbox" id="cont-conf"> <strong>Conferência da cozinha: calcular desvio nesta contagem</strong></label>
+        <p class="dica" style="margin:6px 0 0">Sem marcar, a contagem da cozinha só atualiza o estoque, sem desvio. Para conferir: conte a cozinha (estoque inicial), lance as vendas do período em Saídas e faça a contagem final marcando esta opção. O desvio é estoque inicial + requisições − saídas − contagem final.</p>
+      </div>
+      <p class="dica oculto" id="cont-dica-principal" data-gestor>Câmara principal: toda contagem confere o estoque (última contagem + entradas − requisições) e gera desvio.</p>
       <div id="cont-aviso"></div>
       <div class="tabela-wrap"><table><thead><tr><th>Produto</th><th>Unidade</th><th class="num">Contado</th></tr></thead><tbody id="cont-grid"></tbody></table></div>
       <div class="campo"><label for="cont-obs">Observação (opcional)</label><input id="cont-obs"></div>
@@ -972,7 +977,7 @@ tr.critico td:first-child { box-shadow: inset 4px 0 0 #E55C0E !important; }
           <button class="btn sec peq" data-exp="desvios" data-fmt="xlsx">Excel</button>
           <button class="btn sec peq" data-exp="desvios" data-fmt="pdf">PDF</button>
         </div>
-        <p class="dica">Desvio positivo é falta (sumiu); negativo é sobra. Calculado entre duas contagens seguidas do mesmo produto. Perda confirmada continua sendo desvio: aparece como <strong>justificado</strong>, e o restante como <strong>sem justificativa</strong>.</p>
+        <p class="dica">Desvio positivo é falta (sumiu); negativo é sobra. Na câmara principal, toda contagem gera desvio. Na cozinha, só as contagens marcadas como conferência, comparadas com a contagem anterior da cozinha. Perda confirmada continua sendo desvio: aparece como <strong>justificado</strong>, e o restante como <strong>sem justificativa</strong>.</p>
         <div class="indicadores" id="dev-ind"></div>
         <h3>Por produto</h3>
         <div class="tabela-wrap"><table><thead><tr><th>Produto</th><th class="num">Ocorrências</th><th class="num">Fora da tolerância</th><th class="num">Desvio total</th><th class="num">Justificado</th><th class="num">Sem justificativa</th><th class="num">Desvio total (R$)</th><th class="num">Sem justificativa (R$)</th><th></th></tr></thead><tbody id="dev-rank"></tbody></table></div>
@@ -1337,7 +1342,7 @@ tr.critico td:first-child { box-shadow: inset 4px 0 0 #E55C0E !important; }
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-09.5";
+const VERSAO = "2026-10-29.1";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -2187,6 +2192,10 @@ function montarContagem() {
   const lista = tipo === "DIARIA" ? E.produtos.filter((p) => p.critico) : E.produtos;
   montarGrade($("#cont-grid"), lista, { permitirZero: true });
   $("#cont-busca").value = ""; $("#cont-resumo").textContent = ""; $("#cont-resultado").innerHTML = "";
+  const coz = $("#cont-local").value === "COZINHA";
+  $("#cont-conf-box").classList.toggle("oculto", !isGestor() || !coz);
+  $("#cont-dica-principal").classList.toggle("oculto", !isGestor() || coz);
+  $("#cont-conf").checked = false;
 }
 $("#cont-tipo").addEventListener("change", montarContagem);
 // Folha de contagem em papel: mesma lista selecionada (tipo e local), sem estoque esperado (contagem cega)
@@ -2225,27 +2234,40 @@ $("#cont-salvar").addEventListener("click", async () => {
   const btn = $("#cont-salvar");
   const dh = inputParaISO($("#cont-data").value);
 
+  const conf = isGestor() && local === "COZINHA" && $("#cont-conf").checked;
   // Sem etapa de recontagem: salva direto
-  if (!confirm(`Salvar contagem ${NOME_TIPO_CONT[tipo].toLowerCase()} da ${NOME_LOCAL[local].toLowerCase()} com ${itens.length} itens?`)) return;
+  if (!confirm(`Salvar contagem ${NOME_TIPO_CONT[tipo].toLowerCase()} da ${NOME_LOCAL[local].toLowerCase()} com ${itens.length} itens?${conf ? "\n\nConferência ativada: o sistema vai calcular o desvio da cozinha." : ""}`)) return;
   btn.disabled = true;
   const { data, error } = await sb.rpc("registrar_contagem", {
     p_local: local, p_tipo: tipo, p_itens: itens, p_data_hora: dh, p_observacao: $("#cont-obs").value || null,
   });
   btn.disabled = false;
   if (error) return toast(msgErro(error));
-  toast("Contagem salva.");
+  if (conf) {
+    const r = await sb.rpc("definir_conferencia", { p_contagem: data.id, p_valor: true });
+    if (r.error) toast("Contagem salva, mas a conferência não foi ativada: " + msgErro(r.error));
+    else toast("Contagem de conferência salva. Veja o desvio em Desvios ou em Ver.");
+  } else toast("Contagem salva.");
   montarContagem(); $("#cont-obs").value = ""; $("#cont-data").value = agoraInput();
   carregarContagens();
 });
 
 async function carregarContagens() {
-  const lista = await q(sb.from("contagens").select("id,local,tipo,data_hora,responsavel,perfis!contagens_responsavel_fkey(nome),contagem_itens(count)").is("excluido_em", null).order("data_hora", { ascending: false }).limit(15));
-  $("#cont-lista").innerHTML = lista.length ? lista.map((c) => `<tr><td>${fmtDataHora(c.data_hora)}</td><td>${NOME_LOCAL[c.local]}</td><td>${NOME_TIPO_CONT[c.tipo]}</td>
+  const lista = await q(sb.from("contagens").select("id,local,tipo,conferencia,data_hora,responsavel,perfis!contagens_responsavel_fkey(nome),contagem_itens(count)").is("excluido_em", null).order("data_hora", { ascending: false }).limit(15));
+  $("#cont-lista").innerHTML = lista.length ? lista.map((c) => `<tr><td>${fmtDataHora(c.data_hora)}</td><td>${NOME_LOCAL[c.local]}</td><td>${NOME_TIPO_CONT[c.tipo]}${c.local === "COZINHA" && c.conferencia ? ` <span class="selo obs">Conferência</span>` : ""}</td>
     <td class="num">${c.contagem_itens?.[0]?.count ?? ""}</td><td>${esc(c.perfis?.nome)}</td>
-    <td><div class="acoes"><button class="btn sec peq" data-ver-cont="${c.id}">${isGestor() ? "Ver / editar" : "Ver"}</button>${isGestor() ? `<button class="btn perigo peq" data-excluir-cont="${c.id}">Excluir</button>` : ""}</div></td></tr>`).join("")
+    <td><div class="acoes"><button class="btn sec peq" data-ver-cont="${c.id}">${isGestor() ? "Ver / editar" : "Ver"}</button>${isGestor() && c.local === "COZINHA" ? `<button class="btn sec peq" data-conf-cont="${c.id}" data-conf-val="${c.conferencia ? 0 : 1}">${c.conferencia ? "Tirar conferência" : "Usar como conferência"}</button>` : ""}${isGestor() ? `<button class="btn perigo peq" data-excluir-cont="${c.id}">Excluir</button>` : ""}</div></td></tr>`).join("")
     : `<tr><td colspan="6" class="vazio">Nenhuma contagem ainda.</td></tr>`;
 }
-$("#cont-lista").addEventListener("click", (ev) => {
+$("#cont-lista").addEventListener("click", async (ev) => {
+  const cf = ev.target.closest("[data-conf-cont]");
+  if (cf) {
+    const val = cf.dataset.confVal === "1";
+    if (!confirm(val ? "Usar esta contagem da cozinha como conferência? O sistema passa a calcular o desvio dela em relação à contagem anterior da cozinha." : "Tirar esta contagem da conferência? O desvio dela deixa de aparecer.")) return;
+    const { error } = await sb.rpc("definir_conferencia", { p_contagem: cf.dataset.confCont, p_valor: val });
+    if (error) return toast(msgErro(error));
+    toast(val ? "Conferência ativada." : "Conferência desativada."); return carregarContagens();
+  }
   const v = ev.target.closest("[data-ver-cont]");
   if (v) return verContagem(v.dataset.verCont);
   const b = ev.target.closest("[data-excluir-cont]");
@@ -2254,7 +2276,7 @@ $("#cont-lista").addEventListener("click", (ev) => {
 
 // Ver uma contagem já registrada: itens, quantidade e desvio de cada um
 async function verContagem(id) {
-  const [cab] = await q(sb.from("contagens").select("id,local,tipo,data_hora,observacao,perfis!contagens_responsavel_fkey(nome)").eq("id", id));
+  const [cab] = await q(sb.from("contagens").select("id,local,tipo,conferencia,data_hora,observacao,perfis!contagens_responsavel_fkey(nome)").eq("id", id));
   const itens = await q(sb.from("contagem_itens").select("produto_id,quantidade,quantidade_primeira,justificativa,produtos(nome,unidade,categoria)").eq("contagem_id", id).is("excluido_em", null));
   const dv = await q(sb.from("v_desvios").select("produto_id,esperado,desvio,fora_tolerancia").eq("contagem_id", id));
   const mapDv = Object.fromEntries(dv.map((d) => [d.produto_id, d]));
@@ -2263,7 +2285,7 @@ async function verContagem(id) {
   modoEdicaoContagem(false);
   let cat = null;
   $("#vc-titulo").textContent = `Contagem ${NOME_TIPO_CONT[cab.tipo] || ""} · ${NOME_LOCAL[cab.local] || ""}`;
-  $("#vc-info").textContent = `${fmtDataHora(cab.data_hora)} · ${cab.perfis?.nome || ""} · ${itens.length} item(ns)${cab.observacao ? " · " + cab.observacao : ""}`;
+  $("#vc-info").textContent = `${fmtDataHora(cab.data_hora)} · ${cab.perfis?.nome || ""} · ${itens.length} item(ns)${cab.observacao ? " · " + cab.observacao : ""}${cab.local === "COZINHA" ? (cab.conferencia ? " · Conferência: com desvio" : " · Sem conferência: só atualiza o estoque") : ""}`;
   $("#vc-lista").innerHTML = ord.map((i) => {
     const d = mapDv[i.produto_id];
     let h = "";
