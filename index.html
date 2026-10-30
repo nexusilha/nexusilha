@@ -570,6 +570,7 @@ tr.critico td:first-child { box-shadow: inset 4px 0 0 #E55C0E !important; }
         <div class="menu-lista">
           <button data-aba="perdas" data-lider>Perdas <span id="nav-perdas-badge"></span></button>
           <button data-aba="processos" data-lider>Processos</button>
+          <button data-aba="previsao" data-lider>Previsão de consumo</button>
         </div>
       </div>
       <button class="nav-item" data-aba="rnc">RNC <span id="nav-rnc-badge"></span></button>
@@ -769,6 +770,34 @@ tr.critico td:first-child { box-shadow: inset 4px 0 0 #E55C0E !important; }
           <div><h3>Devolutiva do CD/CP</h3>
             <div class="tabela-wrap"><table><thead><tr><th>Resultado</th><th class="num">RNCs</th></tr></thead><tbody id="ri-ret"></tbody></table></div></div>
         </div>
+      </div>
+    </section>
+
+    <!-- PREVISÃO DE CONSUMO (informativo, não mexe no estoque) -->
+    <section id="aba-previsao" class="oculto">
+      <div class="topo-secao"><h2>Previsão de consumo</h2>
+        <button class="btn sec peq" id="pv-pdf-praca">PDF da praça</button>
+        <button class="btn sec peq" id="pv-pdf-geral">PDF geral</button>
+      </div>
+      <p class="ola oculto" id="pv-ola"></p>
+      <div class="filtros">
+        <div class="campo"><label for="pv-semana">Semana</label><select id="pv-semana"></select></div>
+        <div class="campo"><label for="pv-praca">Praça</label><select id="pv-praca"></select></div>
+        <div class="campo"><label for="pv-busca">Buscar produto</label><input id="pv-busca" placeholder="Nome"></div>
+        <label class="chk"><input type="checkbox" id="pv-so-prev"> Só com previsão</label>
+      </div>
+      <p class="dica">Só informativo: a previsão não dá saída nem mexe no estoque. Serve de guia para os chefs e o estoquista organizarem a semana.</p>
+      <div class="aviso oculto" id="pv-obs-ver"></div>
+      <div id="pv-edicao" class="oculto">
+        <div class="acoes" style="margin-bottom:12px">
+          <button class="btn sec peq" id="pv-copiar">Copiar da semana anterior</button>
+          <button class="btn sec peq" id="pv-limpar">Limpar praça</button>
+        </div>
+      </div>
+      <div class="tabela-wrap"><table><thead id="pv-cab"></thead><tbody id="pv-grid"></tbody></table></div>
+      <div id="pv-rodape" class="oculto">
+        <div class="campo" style="margin-top:12px"><label for="pv-obs">Observação da semana (aparece para todos e no PDF)</label><textarea id="pv-obs" placeholder="Ex.: feriado na sexta, evento no sábado, reforçar petiscos"></textarea></div>
+        <div class="barra-acao"><span id="pv-resumo" class="dica" style="margin:0"></span><button class="btn" id="pv-salvar">Salvar previsão da praça</button></div>
       </div>
     </section>
 
@@ -1342,7 +1371,7 @@ tr.critico td:first-child { box-shadow: inset 4px 0 0 #E55C0E !important; }
 // ============================================================
 // CONFIG
 // ============================================================
-const VERSAO = "2026-10-29.1";
+const VERSAO = "2026-10-30.1";
 (async () => {
   try {
     const r = await fetch(location.pathname, { cache: "reload" });
@@ -1400,8 +1429,8 @@ const isGestor = () => E.perfil?.papel === "GESTOR";
 const isLider = () => E.perfil?.papel === "LIDER";
 // Páginas por perfil (gestão vê tudo). Fora da gestão, desvios, estoque, movimentação, CMV e preços são só leitura.
 const PERMISSOES = {
-  ESTOQUISTA: ["painel", "requisicoes", "contagem", "saidas", "entradas", "perdas", "rnc", "desvios", "saldos", "extrato", "scorecard", "precos"],
-  LIDER: ["requisicoes", "perdas", "processos", "rnc", "desvios", "saldos", "extrato", "scorecard", "precos"],
+  ESTOQUISTA: ["painel", "requisicoes", "contagem", "saidas", "entradas", "perdas", "rnc", "previsao", "desvios", "saldos", "extrato", "scorecard", "precos"],
+  LIDER: ["requisicoes", "perdas", "processos", "rnc", "previsao", "desvios", "saldos", "extrato", "scorecard", "precos"],
 };
 const podeAbrir = (aba) => isGestor() || (PERMISSOES[E.perfil?.papel] || []).includes(aba);
 const ordCat = (c) => { const i = CAT_ORDEM.indexOf(c); return i < 0 ? 99 : i; };
@@ -3926,6 +3955,175 @@ async function carregarIndRnc() {
   $("#ri-oc").innerHTML = conta("ocasiao", NOME_OCASIAO);
   $("#ri-ret").innerHTML = conta("retorno", NOME_RETORNO);
 }
+
+
+// ============================================================
+// PREVISÃO DE CONSUMO POR PRAÇA (só informativo; não mexe no estoque)
+// ============================================================
+carregadores.previsao = () => {
+  $("#pv-ola").classList.toggle("oculto", isGestor());
+  if (!isGestor()) $("#pv-ola").textContent = `${cumprimento()}, ${primeiroNome()}. Esta é a previsão de consumo da semana por praça.`;
+  if (!$("#pv-semana").options.length) {
+    const atual = segunda(hojeSP());
+    let h = "";
+    for (let i = 2; i >= -8; i--) { const d = addDias(atual, i * 7); h += `<option value="${d}" ${i === 0 ? "selected" : ""}>${rotuloSemana(d)}${i === 0 ? " · atual" : i === 1 ? " · próxima" : ""}</option>`; }
+    $("#pv-semana").innerHTML = h;
+  }
+  const at = $("#pv-praca").value;
+  $("#pv-praca").innerHTML = `<option value="">Todas (visão geral)</option>` + E.pracas.filter((x) => x.ativo).map((x) => `<option value="${x.id}">${esc(x.nome)}</option>`).join("");
+  $("#pv-praca").value = at || (isGestor() ? String(E.pracas.find((x) => x.ativo)?.id || "") : "");
+  carregarPrevisao();
+};
+["#pv-semana", "#pv-praca"].forEach((x) => $(x).addEventListener("change", carregarPrevisao));
+$("#pv-busca").addEventListener("input", renderPrevisao);
+$("#pv-so-prev").addEventListener("change", renderPrevisao);
+
+async function carregarPrevisao() {
+  const sem = $("#pv-semana").value, ant = addDias(sem, -7), ant2 = addDias(sem, -14);
+  const [lin, obs] = await Promise.all([
+    tudo(() => sb.from("previsoes").select("id,semana_inicio,praca_id,produto_id,quantidade").in("semana_inicio", [sem, ant, ant2])),
+    q(sb.from("previsao_semanas").select("semana_inicio,observacao").eq("semana_inicio", sem)),
+  ]);
+  const m = {};
+  lin.forEach((x) => { ((m[x.semana_inicio] ??= {})[x.praca_id] ??= {})[x.produto_id] = x; });
+  E.pv = { sem, ant, ant2, m, obs: obs[0]?.observacao || "" };
+  $("#pv-obs").value = E.pv.obs;
+  $("#pv-obs-ver").classList.toggle("oculto", !E.pv.obs || isGestor());
+  $("#pv-obs-ver").textContent = E.pv.obs ? `Observação da semana: ${E.pv.obs}` : "";
+  renderPrevisao();
+}
+const pvQtd = (sem, praca, prod) => E.pv?.m?.[sem]?.[praca]?.[prod]?.quantidade;
+function pvProdutosFiltrados(soComPrev) {
+  const t = $("#pv-busca").value.trim().toLowerCase();
+  return ordenarProdutos(E.produtos).filter((p) => (!t || p.nome.toLowerCase().includes(t)) && (!soComPrev || soComPrev(p)));
+}
+function renderPrevisao() {
+  if (!E.pv) return;
+  const { sem, ant, ant2 } = E.pv, praca = $("#pv-praca").value, so = $("#pv-so-prev").checked;
+  const edita = isGestor() && !!praca;
+  $("#pv-edicao").classList.toggle("oculto", !edita);
+  $("#pv-rodape").classList.toggle("oculto", !edita);
+  $("#pv-pdf-praca").classList.toggle("oculto", !praca);
+  let cat = null, html = "";
+  const grupo = (p, cols) => { if (p.categoria === cat) return ""; cat = p.categoria; return `<tr class="grupo"><td colspan="${cols}">${esc(cat)}</td></tr>`; };
+  if (!praca) {
+    const pr = E.pracas.filter((x) => x.ativo);
+    $("#pv-cab").innerHTML = `<tr><th>Produto</th><th>Un.</th>${pr.map((x) => `<th class="num">${esc(x.nome)}</th>`).join("")}<th class="num">Total</th></tr>`;
+    const lista = pvProdutosFiltrados((p) => pr.some((x) => Number(pvQtd(sem, x.id, p.id)) > 0));
+    html = lista.map((p) => {
+      const vals = pr.map((x) => Number(pvQtd(sem, x.id, p.id)) || 0);
+      return grupo(p, pr.length + 3) + `<tr><td>${esc(p.nome)}</td><td>${esc(p.unidade)}</td>${vals.map((v) => `<td class="num">${v ? fmtQtd(v) : "-"}</td>`).join("")}<td class="num"><strong>${fmtQtd(vals.reduce((a, b) => a + b, 0))}</strong></td></tr>`;
+    }).join("") || `<tr><td colspan="${pr.length + 3}" class="vazio">Nenhuma previsão lançada para ${esc(rotuloSemana(sem))}.</td></tr>`;
+  } else if (edita) {
+    $("#pv-cab").innerHTML = `<tr><th>Produto</th><th>Un.</th><th class="num">Sem. ${semanaISO(ant2).semana}</th><th class="num">Sem. ${semanaISO(ant).semana}</th><th class="num">Previsto</th></tr>`;
+    const lista = pvProdutosFiltrados(so ? (p) => Number(pvQtd(sem, praca, p.id)) > 0 : null);
+    html = lista.map((p) => {
+      const v = pvQtd(sem, praca, p.id), a1 = pvQtd(ant, praca, p.id), a2 = pvQtd(ant2, praca, p.id);
+      return grupo(p, 5) + `<tr data-nome="${esc(p.nome.toLowerCase())}"><td>${esc(p.nome)}</td><td>${esc(p.unidade)}</td>
+        <td class="num">${a2 != null ? fmtQtd(a2) : "-"}</td><td class="num">${a1 != null ? fmtQtd(a1) : "-"}</td>
+        <td class="num"><input class="qtd" type="text" inputmode="decimal" autocomplete="off" data-pv="${p.id}" data-ant="${a1 ?? ""}" value="${v != null ? numIn(v) : ""}" aria-label="${esc(p.nome)}"></td></tr>`;
+    }).join("") || `<tr><td colspan="5" class="vazio">Nenhum produto.</td></tr>`;
+  } else {
+    $("#pv-cab").innerHTML = `<tr><th>Produto</th><th>Un.</th><th class="num">Previsto na semana</th></tr>`;
+    const lista = pvProdutosFiltrados((p) => Number(pvQtd(sem, praca, p.id)) > 0);
+    html = lista.map((p) => grupo(p, 3) + `<tr><td>${esc(p.nome)}</td><td>${esc(p.unidade)}</td><td class="num"><strong>${fmtQtd(pvQtd(sem, praca, p.id))}</strong></td></tr>`).join("")
+      || `<tr><td colspan="3" class="vazio">Nenhuma previsão lançada para esta praça em ${esc(rotuloSemana(sem))}.</td></tr>`;
+  }
+  $("#pv-grid").innerHTML = html;
+  atualizarResumoPv();
+}
+function atualizarResumoPv() {
+  const n = [...$$("#pv-grid input[data-pv]")].filter((i) => i.value.trim() !== "" && num(i.value) > 0).length;
+  $("#pv-resumo").textContent = n ? `${n} produtos com previsão` : "";
+}
+$("#pv-grid").addEventListener("input", atualizarResumoPv);
+$("#pv-copiar").addEventListener("click", () => {
+  const ins = [...$$("#pv-grid input[data-pv]")].filter((i) => i.dataset.ant !== "");
+  if (!ins.length) return toast("A semana anterior não tem previsão para esta praça.");
+  if ([...$$("#pv-grid input[data-pv]")].some((i) => i.value.trim() !== "") && !confirm("Substituir os valores digitados pelos da semana anterior?")) return;
+  ins.forEach((i) => (i.value = numIn(i.dataset.ant)));
+  atualizarResumoPv(); toast(`${ins.length} produtos copiados. Ajuste e salve.`);
+});
+$("#pv-limpar").addEventListener("click", () => {
+  if (!confirm("Limpar todos os campos desta praça? Só apaga de vez quando você salvar.")) return;
+  $$("#pv-grid input[data-pv]").forEach((i) => (i.value = "")); atualizarResumoPv();
+});
+$("#pv-salvar").addEventListener("click", async () => {
+  const { sem } = E.pv, praca = Number($("#pv-praca").value);
+  if (!praca) return;
+  const inputs = [...$$("#pv-grid input[data-pv]")];
+  const ruins = inputs.filter((i) => i.value.trim() !== "" && !(num(i.value) >= 0));
+  if (ruins.length) { ruins[0].focus(); return toast("Há quantidade inválida."); }
+  const salvar = inputs.filter((i) => i.value.trim() !== "" && num(i.value) > 0).map((i) => ({ semana_inicio: sem, praca_id: praca, produto_id: i.dataset.pv, quantidade: num(i.value), criado_por: E.perfil.id, atualizado_em: new Date().toISOString() }));
+  const apagar = inputs.filter((i) => i.value.trim() === "" || num(i.value) === 0).map((i) => E.pv.m?.[sem]?.[praca]?.[i.dataset.pv]?.id).filter(Boolean);
+  const btn = $("#pv-salvar"); btn.disabled = true;
+  try {
+    if (salvar.length) { const { error } = await sb.from("previsoes").upsert(salvar, { onConflict: "semana_inicio,praca_id,produto_id" }); if (error) throw error; }
+    if (apagar.length) { const { error } = await sb.from("previsoes").delete().in("id", apagar); if (error) throw error; }
+    const obs = $("#pv-obs").value.trim();
+    if (obs !== (E.pv.obs || "")) {
+      const { error } = await sb.from("previsao_semanas").upsert({ semana_inicio: sem, observacao: obs || null, atualizado_por: E.perfil.id, atualizado_em: new Date().toISOString() });
+      if (error) throw error;
+    }
+    const nome = E.pracas.find((x) => x.id === praca)?.nome || "";
+    toast(`Previsão de ${nome} salva: ${salvar.length} produtos.`);
+    carregarPrevisao();
+  } catch (e) { toast(msgErro(e)); }
+  finally { btn.disabled = false; }
+});
+
+// PDF por praça e geral
+function pdfCabPrevisao(doc, titulo, sub) {
+  doc.setFillColor(16, 42, 53); doc.rect(0, 0, doc.internal.pageSize.getWidth(), 22, "F");
+  doc.setTextColor(255); doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.text(titulo, 14, 10);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.text(sub, 14, 17);
+  doc.setTextColor(20, 35, 43);
+}
+function pdfRodapePrevisao(doc) {
+  const n = doc.getNumberOfPages(), w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
+  for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(120);
+    doc.text(`Previsão de consumo (informativa, não mexe no estoque) | Gerado em ${fmtDataHora(new Date().toISOString())} | Página ${i} de ${n}`, w / 2, h - 6, { align: "center" }); }
+}
+function linhasAgrupadas(lista, linha, ncol) {
+  const body = []; let cat = null;
+  lista.forEach((p) => {
+    if (p.categoria !== cat) { cat = p.categoria; body.push([{ content: cat, colSpan: ncol, styles: { fillColor: [242, 245, 246], fontStyle: "bold" } }]); }
+    body.push(linha(p));
+  });
+  return body;
+}
+$("#pv-pdf-praca").addEventListener("click", () => {
+  if (!E.pv) return;
+  const { sem } = E.pv, praca = Number($("#pv-praca").value), nome = E.pracas.find((x) => x.id === praca)?.nome || "";
+  const lista = ordenarProdutos(E.produtos).filter((p) => Number(pvQtd(sem, praca, p.id)) > 0);
+  if (!lista.length) return toast("Esta praça não tem previsão salva nesta semana.");
+  const { jsPDF } = window.jspdf; const doc = new jsPDF({ unit: "mm", format: "a4" });
+  pdfCabPrevisao(doc, `Previsão de consumo - ${nome}`, `${rotuloSemana(sem)} | Ilha do Caranguejo - VIX`);
+  let y = 30;
+  if (E.pv.obs) { const l = doc.splitTextToSize(`Observação: ${E.pv.obs}`, 182); doc.setFontSize(9.5); doc.text(l, 14, y); y += l.length * 4.5 + 2; }
+  doc.autoTable({ startY: y, theme: "grid", head: [["Produto", "Un.", "Previsto na semana"]],
+    body: linhasAgrupadas(lista, (p) => [p.nome, p.unidade, fmtQtd(pvQtd(sem, praca, p.id))], 3),
+    styles: { fontSize: 10, cellPadding: 2.4 }, headStyles: { fillColor: [16, 42, 53] }, columnStyles: { 1: { cellWidth: 16 }, 2: { halign: "right", cellWidth: 42, fontStyle: "bold" } } });
+  pdfRodapePrevisao(doc);
+  doc.save(`previsao_${nome.toLowerCase().replace(/\s+/g, "_")}_sem${semanaISO(sem).semana}.pdf`);
+});
+$("#pv-pdf-geral").addEventListener("click", () => {
+  if (!E.pv) return;
+  const { sem } = E.pv, pr = E.pracas.filter((x) => x.ativo);
+  const lista = ordenarProdutos(E.produtos).filter((p) => pr.some((x) => Number(pvQtd(sem, x.id, p.id)) > 0));
+  if (!lista.length) return toast("Nenhuma previsão salva nesta semana.");
+  const { jsPDF } = window.jspdf; const doc = new jsPDF({ unit: "mm", format: "a4", orientation: pr.length > 4 ? "landscape" : "portrait" });
+  pdfCabPrevisao(doc, "Previsão de consumo - Geral", `${rotuloSemana(sem)} | Ilha do Caranguejo - VIX`);
+  let y = 30;
+  if (E.pv.obs) { const l = doc.splitTextToSize(`Observação: ${E.pv.obs}`, doc.internal.pageSize.getWidth() - 28); doc.setFontSize(9.5); doc.text(l, 14, y); y += l.length * 4.5 + 2; }
+  const cols = Object.fromEntries(pr.map((_, i) => [i + 2, { halign: "right" }]));
+  cols[pr.length + 2] = { halign: "right", fontStyle: "bold" }; cols[1] = { cellWidth: 14 };
+  doc.autoTable({ startY: y, theme: "grid", head: [["Produto", "Un.", ...pr.map((x) => x.nome), "Total"]],
+    body: linhasAgrupadas(lista, (p) => { const v = pr.map((x) => Number(pvQtd(sem, x.id, p.id)) || 0); return [p.nome, p.unidade, ...v.map((n) => (n ? fmtQtd(n) : "-")), fmtQtd(v.reduce((a, b) => a + b, 0))]; }, pr.length + 3),
+    styles: { fontSize: 9, cellPadding: 2 }, headStyles: { fillColor: [16, 42, 53] }, columnStyles: cols });
+  pdfRodapePrevisao(doc);
+  doc.save(`previsao_geral_sem${semanaISO(sem).semana}.pdf`);
+});
 
 // ============================================================
 // CMV DE PROTEÍNAS (scorecard semanal)
